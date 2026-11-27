@@ -12,3 +12,6 @@ Rebalanced lighting, expanded original KayKit props, stage-specific camera, text
 
 ## 1.1.0 recipe and visual overhaul
 30 selectable recipes, five dough profiles, nine ingredient tools including sauce, persistent completion, spatial collision checks for toppings, separate animated pizza slices, guided cutting and optional real wood/UI assets. Source downloads and actual usage are verified in build logs; network-dependent optional assets fall back to original materials. Device rendering and the final APK size remain to be verified. Not all original ten modes are implemented.
+
+## 1.2.0 market and visual rebuild
+Ingredient shopping before cooking, 30 illustrated recipe cards, visible ingredient thumbnails (Kenney previews when available), original texture maps and launcher icon, layered toppings and cheese, revised warm cream controls, four pinned Quaternius CC0 crop meshes. The market uses a distinct 3D scene. This revision needs a successful CI run and visual acceptance on a real device; it is not a completed commercial title.

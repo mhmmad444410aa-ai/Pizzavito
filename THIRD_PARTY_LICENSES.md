@@ -14,3 +14,5 @@ Optional ambientCG Wood091B (CC0): https://ambientcg.com/view?id=Wood091B — co
 Original vector illustrations in rebuild/art and icon.svg; original non-musical click effect. The 3D ingredient gallery uses selected CC0 Kenney Food Kit and KayKit Restaurant Bits models through the existing manifest. No external paid, copyrighted game imagery or music. The old project files remain available in source history.
 
 Four UI glyphs from Lucide, pinned 4bf621064bed45d114ba31435b85760513830d1c, source https://github.com/lucide-icons/lucide; copyright and license included in rebuild/icons/LICENSE.txt. SVG size and stroke color modified. Original recipe thumbnails generated from recipe-specific ingredients and shapes.
+
+Quaternius Ultimate Crops Pack, CC0: https://quaternius.com/packs/ultimatecrops.html. Four harvested crop meshes from https://github.com/trebeljahr/quaternius-showcase at 0128ca510d653bb04d6d1e4885bd8890b5050b4f, checked against Git blob hashes. Kenney Food Kit previews remain CC0. Recipe illustrations, icon and food textures are original procedural artwork.

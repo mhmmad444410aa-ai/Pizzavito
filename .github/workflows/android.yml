@@ -72,6 +72,8 @@ jobs:
           python3 -u tools/fetch_assets.py 2>&1 | tee build/assets.log
           python3 -m py_compile tools/fetch_visuals.py
           python3 -u tools/fetch_visuals.py 2>&1 | tee build/visuals.log
+          python3 tools/generate_art.py
+          godot --headless --path . --script tools/export_icon.gd
       - name: Import project and run smoke test
         shell: bash
         run: |

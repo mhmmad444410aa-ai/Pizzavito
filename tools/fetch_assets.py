@@ -110,6 +110,7 @@ def main():
                 safe_extract(z, root)
             models = [p for p in root.rglob("*") if p.suffix.lower() in (".glb", ".gltf")]
             print(pack, "model count:", len(models), flush=True)
+            previews = [p for p in root.rglob("*.png") if "preview" in str(p.parent).lower()]
             for key, terms in WANTED[pack].items():
                 options = [p for p in models if any(norm(t) in norm(p.stem) for t in terms) and not any(x in p.stem.lower() for x in ("bacon","pork","ham","beer","wine","sausage","salami","pepperoni"))]
                 if not options:
@@ -118,11 +119,33 @@ def main():
                 options.sort(key=lambda p: (min((0 if norm(p.stem)==norm(t) else 1) for t in terms), p.suffix.lower()!=".glb", len(p.stem), str(p)))
                 model = options[0]
                 target = copy_model(model, OUT / key, root)
+                matches = [p for p in previews if norm(p.stem)==norm(model.stem)]
+                if matches and key in ("tomato","mushroom","cheese","pepper","onion","corn","carrot","olive","pizza"):
+                    preview_dir = OUT / "previews"
+                    preview_dir.mkdir(exist_ok=True)
+                    shutil.copy2(matches[0], preview_dir / (key + ".png"))
                 manifest[key] = {"path": "res://" + target.relative_to(ROOT).as_posix(), "source": pack, "original": str(model.relative_to(root)), "sha256": hashlib.sha256(target.read_bytes()).hexdigest()}
             for lic in root.rglob("*"):
                 if lic.is_file() and lic.name.lower() in ("license.txt","license.md","license"):
                     shutil.copy2(lic, OUT / (pack + "_LICENSE.txt"))
                     break
+    # Exact, pinned CC0 Quaternius crop meshes, independently verified by Git blob hash.
+    revision = "0128ca510d653bb04d6d1e4885bd8890b5050b4f"
+    crops = {
+        "tomato": ("Tomato_Harvested", "3af461facb7eacc06a3544a8333e9e5e747e44ac"),
+        "corn": ("Corn_Harvested", "22f3e33dea07d15654c4d819c364b60126eeba9a"),
+        "mushroom": ("Mushroom_Harvested", "934a20fae2e6447f3e916f7ea006c8ee20f467b0"),
+        "lettuce": ("Lettuce_Harvested", "7e0170c16c234acfdccec083b6786008f8a9c98d"),
+    }
+    for key,(name,expected) in crops.items():
+        target = OUT / ("market_"+key) / (name+".glb")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        url = f"https://raw.githubusercontent.com/trebeljahr/quaternius-showcase/{revision}/public/glb/crops_pack/{name}.glb"
+        subprocess.run(["curl","-fsSL","--retry","3","--max-time","90",url,"-o",str(target)],check=True)
+        raw = target.read_bytes()
+        assert hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\x00"+raw).hexdigest()==expected
+        assert raw[:4]==b"glTF"
+        manifest["market_"+key] = {"path":"res://"+target.relative_to(ROOT).as_posix(),"source":"Quaternius Ultimate Crops Pack","original":url,"sha256":hashlib.sha256(raw).hexdigest()}
     for required in ("pizza","tomato","oven","counter"):
         if required not in manifest:
             raise SystemExit("Required source asset not found: " + required)
