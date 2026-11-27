@@ -1,3 +1,6 @@
+# Pizzavito: Pizza Maker 3D — Rebuild 2.0.0
+New 2.5D touch-first cooking studio with original illustrated vector art, separate home, recipe book, kitchen, settings, ingredient gallery and result screens. 50 named recipe variants with five dough silhouettes, two sauces, nine ingredients, variable cut targets, four illustrated kitchens, spatial sauce coverage, drag/tap toppings and oven timing. Ingredient gallery uses imported original CC0 3D assets. Offline, no music or ads. The old prototype remains in git history.
+CI verifies asset import, six stage transitions, all screens, APK native libraries and signature. This is a new test milestone, not a verified production release. Real device visual review, performance, touch accessibility, permanent release key and the remaining original requested gameplay modes are still outstanding. 
 # Pizzavito: Pizza Maker 3D
 Godot 4.5.1 landscape Android vertical slice, package com.mhmmad.pizzavito.
 Ten recipe challenges across two kitchen themes, four interactive stages. No ads, analytics, music, people or animals.

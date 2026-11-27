@@ -9,3 +9,6 @@ Fallback mirror for Kenney Food Kit: https://github.com/WaviestSun/atelier-packs
 Revision 1.0.1 expands the selected KayKit kitchen models (cabinet, hood, jars, dishes, knife, crates, sliced ingredients) from the existing pinned CC0 pack. Short tactile noise effect is original procedural audio; no music.
 
 Optional ambientCG Wood091B (CC0): https://ambientcg.com/view?id=Wood091B — colour, OpenGL normal and roughness used on the worktop. Optional Kenney UI Pack (CC0): https://kenney.nl/assets/ui-pack — selected original button PNG. See visuals-report.json for actual downloaded files. Additional KayKit carrot/chopped carrot models use the existing CC0 source.
+
+## Rebuild 2.0
+Original vector illustrations in rebuild/art and icon.svg; original non-musical click effect. The 3D ingredient gallery uses selected CC0 Kenney Food Kit and KayKit Restaurant Bits models through the existing manifest. No external paid, copyrighted game imagery or music. The old project files remain available in source history.
