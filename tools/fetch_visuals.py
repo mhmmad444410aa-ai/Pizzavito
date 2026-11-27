@@ -25,6 +25,15 @@ def main():
                 report["ambientCG Wood091B"] = "imported"
         except Exception as e:
             report["ambientCG Wood091B"] = "unavailable: "+str(e)
+        for material, ident in [("marble","Marble019"),("tile","Tiles091"),("stone","Wood019")]:
+            try:
+                with fetch("https://ambientcg.com/get?file="+ident+"_2K-JPG.zip",material+".zip",tmp) as z:
+                    entries=[n for n in z.namelist() if n.lower().endswith("_color.jpg")]
+                    if not entries: raise ValueError("Missing colour map")
+                    copy_entry(z,entries[0],ROOT/"surfaces"/(material+"_color.jpg"))
+                    report[ident]="imported"
+            except Exception as e:
+                report[ident]="unavailable: "+str(e)
         try:
             with fetch("https://kenney.nl/media/pages/assets/ui-pack/f651646eab-1718203990/kenney_ui-pack.zip","ui.zip",tmp) as z:
                 options = [n for n in z.namelist() if n.lower().endswith(".png") and "button" in pathlib.PurePosixPath(n).name.lower() and "green" in n.lower() and not any(x in n.lower() for x in ("pressed","disabled","outline","icon"))]

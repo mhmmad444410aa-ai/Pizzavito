@@ -15,3 +15,6 @@ Rebalanced lighting, expanded original KayKit props, stage-specific camera, text
 
 ## 1.2.0 market and visual rebuild
 Ingredient shopping before cooking, 30 illustrated recipe cards, visible ingredient thumbnails (Kenney previews when available), original texture maps and launcher icon, layered toppings and cheese, revised warm cream controls, four pinned Quaternius CC0 crop meshes. The market uses a distinct 3D scene. This revision needs a successful CI run and visual acceptance on a real device; it is not a completed commercial title.
+
+## 2.1.0 progression and touch overhaul
+Home presentation preserved. Sequential locked recipes, contiguous legacy progress, reduced ingredient quotas, interpolated wide sauce brush, visible counts and auto selection, forgiving cuts, assist actions, packaging animation, external ingredient thumbnails and optional distinct CC0 worktop surfaces. New visuals and actual package size depend on CI and device review.

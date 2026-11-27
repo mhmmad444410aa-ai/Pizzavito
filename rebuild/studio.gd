@@ -66,6 +66,15 @@ var model_view: SubViewportContainer
 var preview_world: SubViewport
 var preview_pivot: Node3D
 var old_pointer = Vector2.ZERO
+var unlocked = 0
+var ingredient_labels: Dictionary = {}
+var selected_buttons: Dictionary = {}
+var sauce_goal_cells: Array[Vector2i] = []
+var cut_path: Array[Vector2] = []
+var materials_2d: Dictionary = {}
+var actual_previews: Dictionary = {}
+var packing = false
+var pack_time = 0.0
 
 func _ready() -> void:
  mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -75,8 +84,15 @@ func _ready() -> void:
   lang = clampi(int(cfg.get_value("studio","lang",0)),0,2)
   kitchen = clampi(int(cfg.get_value("studio","kitchen",0)),0,3)
   scores = cfg.get_value("studio","scores",{})
+  while unlocked<book.size()-1 and int(scores.get(str(unlocked),0))>0: unlocked+=1
  for key in KITCHENS+FOODS+["sauce","white","hero","roller","oven","box","cutter"]:
   tex[key] = load(ART+str(key)+".svg")
+ for key in ["wood","marble","tile","stone"]:
+  var path = "res://assets/imported/surfaces/"+key+"_color.jpg"
+  if ResourceLoader.exists(path): materials_2d[key] = load(path)
+ for key in FOODS:
+  var path = "res://assets/imported/previews/"+key+".png"
+  if ResourceLoader.exists(path): actual_previews[key] = load(path)
  if FileAccess.file_exists("res://assets/imported/manifest.json"):
   var m = JSON.parse_string(FileAccess.get_file_as_string("res://assets/imported/manifest.json"))
   if m is Dictionary: manifest = m
@@ -109,6 +125,7 @@ func persist() -> void:
  cfg.set_value("studio","lang",lang)
  cfg.set_value("studio","kitchen",kitchen)
  cfg.set_value("studio","scores",scores)
+ cfg.set_value("studio","unlocked",unlocked)
  cfg.save("user://studio.cfg")
 
 func panel_style(color: Color, edge: Color, radius: int=22) -> StyleBoxFlat:
@@ -198,6 +215,8 @@ func clear_ui() -> void:
   ui.remove_child(child)
   child.queue_free()
  tray_rects.clear()
+ ingredient_labels.clear()
+ selected_buttons.clear()
  status = null
  progress_label = null
  advance_button = null
@@ -245,12 +264,15 @@ func book_ui() -> void:
   var col = (i-first)%3
   var row = int((i-first)/3)
   var area = Rect2(45+col*399,115+row*238,380,219)
-  var card = button(ui,"",area,func(): start_recipe(index,false),false)
+  var card = button(ui,"",area,func(): start_recipe(index,false),i==unlocked)
+  var locked = i>unlocked
+  card.disabled = locked
   var rec = book[i]
   image_node(card,"recipe_"+str(i),Rect2(13,17,150,150))
-  label(card,str(rec["names"][lang]),Rect2(169,13,195,72),25,Color("#355b4a"),true)
+  label(card,str(i+1)+". "+str(rec["names"][lang]),Rect2(169,13,195,72),23,Color("#355b4a"),true)
   var stars = int(scores.get(str(i),0))
-  label(card,"★".repeat(stars)+"☆".repeat(3-stars),Rect2(169,83,195,42),25,Color("#d08b35"))
+  label(card,tr3("Locked","مغلقة","Bloqueada") if locked else "★".repeat(stars)+"☆".repeat(3-stars),Rect2(169,83,195,42),25,Color("#82654d") if locked else Color("#d08b35"))
+  if locked: card.modulate = Color("#b3aa9c")
   var ingredients: Array = rec["ingredients"]
   for n in range(mini(ingredients.size(),4)):
    image_node(card,str(ingredients[n]),Rect2(169+n*46,128,43,43))
@@ -300,6 +322,7 @@ func set_lang(index: int) -> void:
  rebuild_ui()
 
 func start_recipe(index: int, freestyle: bool) -> void:
+ if not freestyle and (index<0 or index>unlocked): return
  recipe = clampi(index,0,book.size()-1)
  free = freestyle
  var rec = book[recipe]
@@ -319,6 +342,11 @@ func start_recipe(index: int, freestyle: bool) -> void:
  finish_score = 0
  pack_anim = 0.0
  roller_at = C
+ cut_hint = true
+ packing = false
+ pack_time = 0.0
+ cut_path.clear()
+ build_sauce_grid()
  go("cook")
 
 func title_for_phase() -> String:
@@ -338,16 +366,16 @@ func cook_ui() -> void:
   var step_col = Color("#4c876c") if i<=phase else Color("#d5b893")
   panel(ui,Rect2(762+i*76,35,57,45),step_col,step_col.darkened(.18))
   label(ui,str(i+1),Rect2(762+i*76,35,57,45),25,Color("#fff6dd"))
- panel(ui,Rect2(24,124,238,478),Color("#fff1d9"),Color("#c68e5c"))
- label(ui,tr3("YOUR ORDER","طلبك","SEU PEDIDO"),Rect2(35,136,216,40),23,Color("#a65338"))
- label(ui,tr3("Free kitchen","المطبخ الحر","Cozinha livre") if free else str(book[recipe]["names"][lang]),Rect2(34,177,218,66),28)
- image_node(ui,"recipe_"+str(recipe),Rect2(62,246,160,160))
- label(ui,shape_label(shape_kind)+"\n"+food_name(sauce_kind),Rect2(36,412,214,75),24)
+ panel(ui,Rect2(24,124,200,478),Color("#fff1d9"),Color("#c68e5c"))
+ label(ui,tr3("YOUR ORDER","طلبك","SEU PEDIDO"),Rect2(33,136,182,40),23,Color("#a65338"))
+ label(ui,tr3("Free kitchen","المطبخ الحر","Cozinha livre") if free else str(book[recipe]["names"][lang]),Rect2(33,177,182,66),28)
+ image_node(ui,"recipe_"+str(recipe),Rect2(44,246,160,160))
+ label(ui,shape_label(shape_kind)+"\n"+food_name(sauce_kind),Rect2(33,412,182,75),24)
  var order_items: Array = book[recipe]["ingredients"] if not free else []
  for i in range(mini(order_items.size(),4)):
-  image_node(ui,str(order_items[i]),Rect2(37+i*53,490,51,51))
+  image_node(ui,str(order_items[i]),Rect2(33+(i%3)*59,490+int(i/3)*51,54,50))
  panel(ui,Rect2(980,124,276,478),Color("#fff1d9"),Color("#c68e5c"))
- status = label(ui,"",Rect2(995,140,246,120),27)
+ status = label(ui,"",Rect2(995,136,246,106),27)
  progress_label = label(ui,"",Rect2(995,527,246,58),23,Color("#a85a3d"))
  match phase:
   0:
@@ -363,7 +391,7 @@ func cook_ui() -> void:
    button(ui,tr3("Start oven","شغّل الفرن","Ligar forno"),Rect2(996,447,244,62),start_bake,true,25)
   4:
    image_node(ui,"cutter",Rect2(1015,271,208,155))
-   button(ui,tr3("Show guide","دليل القطع","Mostrar guia"),Rect2(996,447,244,62),func(): cut_hint = not cut_hint,false,23)
+   button(ui,tr3("Help cut","مساعدة القطع","Ajudar corte"),Rect2(996,447,244,62),assist_cut,false,23)
   5:
    image_node(ui,"box",Rect2(1010,268,216,180))
  panel(ui,Rect2(20,620,1240,82),Color("#fff1d9"),Color("#c48b59"))
@@ -371,18 +399,23 @@ func cook_ui() -> void:
  if phase==2:
   button(ui,tr3("Undo","تراجع","Desfazer"),Rect2(224,632,160,58),undo_topping,false,23)
  advance_button = button(ui,tr3("Next  ›","التالي  ‹","Próximo  ›"),Rect2(938,631,308,60),advance,true,29)
+ if phase==0 or phase==1 or phase==2:
+  button(ui,tr3("Help","مساعدة","Ajuda"),Rect2(430,632,170,58),assist_step,false,24)
  update_status()
 
 func build_tray() -> void:
  var list: Array = FOODS if free else book[recipe]["ingredients"]
+ var cols = 3 if list.size()>4 else 2
+ var card_w = 80 if cols==3 else 122
+ var card_h = 85 if cols==3 else 118
  for i in range(list.size()):
   var key = str(list[i])
-  var x = 993+(i%3)*85
-  var y = 260+int(i/3)*84
-  var area = Rect2(x,y,80,79)
+  var area = Rect2(993+(i%cols)*(card_w+5),244+int(i/cols)*(card_h+5),card_w,card_h)
   var b = button(ui,"",area,func(): select_food(key),false)
-  image_node(b,key,Rect2(7,1,66,59))
-  label(b,food_name(key),Rect2(1,57,78,18),14,Color("#594738"))
+  selected_buttons[key] = b
+  var img = image_node(b,key,Rect2(6,3,card_w-12,card_h-36))
+  if actual_previews.has(key): img.texture = actual_previews[key]
+  ingredient_labels[key] = label(b,food_name(key),Rect2(2,card_h-34,card_w-4,32),17 if cols==2 else 12,Color("#594738"))
   tray_rects[key] = area
 
 func select_food(key: String) -> void:
@@ -401,10 +434,10 @@ func undo_topping() -> void:
  queue_redraw()
 
 func sauce_target() -> int:
- return 24 if shape_kind=="mini" else 38
+ return maxi(1,ceili(sauce_goal_cells.size()*0.64))
 
 func topping_target() -> int:
- return 10 if free else int(book[recipe]["portion"])*book[recipe]["ingredients"].size()
+ return 8 if free else ingredient_quota()*book[recipe]["ingredients"].size()
 
 func required_slices() -> int:
  return int(book[recipe]["slices"])/2
@@ -419,7 +452,7 @@ func fulfilled() -> int:
  if free: return mini(toppings.size(),topping_target())
  var total = 0
  for key in book[recipe]["ingredients"]:
-  total += mini(topping_count(str(key)),int(book[recipe]["portion"]))
+  total += mini(topping_count(str(key)),ingredient_quota())
  return total
 
 func ready_for_next() -> bool:
@@ -443,6 +476,12 @@ func update_status() -> void:
   2:
    status.text = food_name(selected)+"\n"+tr3("Tap or drag to place","اضغط أو اسحب لتوزيع المكونات","Toque ou arraste")
    progress_label.text = str(fulfilled())+" / "+str(topping_target())
+   for key in ingredient_labels:
+    var entry: Label = ingredient_labels[key]
+    var count = topping_count(str(key))
+    entry.text = food_name(str(key))+" "+str(count)+("/"+str(ingredient_quota()) if not free else "")
+    var btn: Button = selected_buttons[key]
+    btn.modulate = Color("#a7e5bf") if key==selected else Color.WHITE
   3:
    status.text = tr3("Stop in the green zone","أوقف الفرن في المنطقة الخضراء","Pare na zona verde")
    progress_label.text = str(roundi(heat*100))+"%"
@@ -482,14 +521,24 @@ func advance() -> void:
   return
  if not ready_for_next(): return
  if phase==5:
+  if not packing:
+   packing = true
+   pack_time = 0.0
+   if is_instance_valid(advance_button): advance_button.disabled = true
+   return
+  if pack_time<0.85: return
   finish_score = maxi(1,mini(3,bake_quality))
   if not free:
    scores[str(recipe)] = maxi(int(scores.get(str(recipe),0)),finish_score)
+   if recipe==unlocked: unlocked = mini(book.size()-1,unlocked+1)
   persist()
   go("result")
   return
  phase+=1
  if phase==5: pack_anim=0.0
+ dragging = false
+ dragging_tool = false
+ cut_path.clear()
  click()
  rebuild_ui()
 
@@ -499,7 +548,7 @@ func result_ui() -> void:
  image_node(ui,"recipe_"+str(recipe),Rect2(495,177,290,290))
  label(ui,"★".repeat(finish_score)+"☆".repeat(3-finish_score),Rect2(300,465,680,60),48,Color("#d79432"))
  button(ui,tr3("Recipe book","دفتر الوصفات","Receitas"),Rect2(295,552,330,67),func(): go("book"),false,26)
- button(ui,tr3("Next pizza","البيتزا التالية","Próxima pizza"),Rect2(652,552,330,67),func(): start_recipe((recipe+1)%book.size(),false),true,26)
+ button(ui,tr3("Next pizza","البيتزا التالية","Próxima pizza"),Rect2(652,552,330,67),func(): start_recipe(mini(recipe+1,unlocked),false),true,26)
 
 func radius_for(a: float) -> float:
  match shape_kind:
@@ -538,11 +587,16 @@ func _draw() -> void:
   draw_rect(Rect2(0,0,1280,720),Color(0.15,0.18,0.13,0.25))
   return
  # An isolated bright work surface keeps the cooking action separate from the background.
- draw_style_box(panel_style(Color("#d5a573"),Color("#9c6a47"),38),Rect2(277,126,688,476))
- draw_style_box(panel_style(Color("#f7dfb6"),Color("#e9c79b"),32),Rect2(291,140,660,447))
- for i in range(12):
-  var y = 157+i*35
-  draw_line(Vector2(308,y),Vector2(934,y+3),Color(0.63,0.43,0.25,0.09),2.0,true)
+ draw_style_box(panel_style(Color("#754b32"),Color("#ad8558"),38),Rect2(237,126,728,476))
+ var material_key = ["wood","marble","tile","stone"][kitchen]
+ if materials_2d.has(material_key):
+  draw_texture_rect(materials_2d[material_key],Rect2(248,137,706,454),false,Color(0.87,0.83,0.76))
+ draw_style_box(panel_style(Color(0.98,0.86,0.69,0.72),Color("#b28857"),35),Rect2(267,143,688,442))
+ if phase!=3 and phase!=5:
+  draw_circle(C+Vector2(0,9),226,Color(0.23,0.13,0.06,0.25))
+  draw_circle(C,226,Color("#b27e4e"))
+  draw_circle(C,217,Color("#dfb37d"))
+  draw_arc(C,210,0,TAU,96,Color("#bc8b5a"),3,true)
  if phase==3:
   draw_image("oven",Rect2(305,120,630,494))
   draw_pizza(0.69,Vector2(0,34))
@@ -557,6 +611,9 @@ func _draw() -> void:
  elif phase==5:
   draw_image("box",Rect2(315,120,610,478))
   draw_pizza(0.82,Vector2(0,12))
+  if packing:
+   var lid_h = 370.0*smoothstep(0.0,0.85,pack_time)
+   draw_style_box(panel_style(Color("#d0a46f"),Color("#9a673f"),14),Rect2(365,192,510,lid_h+1))
   if pack_anim>0:
    for i in range(14):
     var a = float(i)*2.399
@@ -566,6 +623,7 @@ func _draw() -> void:
   draw_pizza(1.0)
   if phase==0: draw_image("roller",Rect2(roller_at-Vector2(150,45),Vector2(300,90)))
   if phase==4 and dragging:
+   for i in range(1,cut_path.size()): draw_line(cut_path[i-1],cut_path[i],Color("#fdf4db"),5,true)
    draw_image("cutter",Rect2(last-Vector2(55,45),Vector2(110,80)))
  if phase==2 and dragging_tool and not inside(last):
   draw_image(selected,Rect2(last-Vector2(32,32),Vector2(64,64)))
@@ -631,6 +689,8 @@ func _input(event: InputEvent) -> void:
   if event.pressed:
    last=p
    stroke_start=p
+   cut_path.clear()
+   cut_path.append(p)
    if phase==2:
     for key in tray_rects:
      if Rect2(tray_rects[key]).has_point(p):
@@ -638,7 +698,7 @@ func _input(event: InputEvent) -> void:
       dragging_tool=true
       update_status()
       return
-   if phase<=4 and phase!=3 and inside(p,1.13):
+   if phase<=4 and phase!=3 and inside(p,1.25):
     dragging=true
     dragging_tool=phase==2
     if phase==1: apply_sauce(p)
@@ -647,6 +707,7 @@ func _input(event: InputEvent) -> void:
   else:
    if phase==2 and dragging_tool and inside(p,.78): add_topping(p)
    if phase==4 and dragging: apply_cut(stroke_start,p)
+   cut_path.clear()
    dragging=false
    dragging_tool=false
    queue_redraw()
@@ -654,40 +715,54 @@ func _input(event: InputEvent) -> void:
   var p = event.position
   var distance = p.distance_to(last)
   if phase==0 and inside(p,1.08):
-   dough_progress=minf(1.0,dough_progress+distance/1150.0)
+   dough_progress=minf(1.0,dough_progress+distance/620.0)
    roller_at=p
-  elif phase==1 and inside(p,.77): apply_sauce(p)
-  elif phase==2 and inside(p,.76) and distance>8: add_topping(p)
+  elif phase==1:
+   for i in range(1,maxi(1,ceili(distance/18.0))+1):
+    apply_sauce(last.lerp(p,float(i)/maxi(1,ceili(distance/18.0))))
+  elif phase==2 and inside(p,.82) and distance>5: add_topping(p)
+  elif phase==4 and cut_path.size()<100: cut_path.append(p)
   last=p
   update_status()
 
 func apply_sauce(p: Vector2) -> void:
- if not inside(p,.76): return
- var cell = Vector2i(floori((p.x-C.x)/35),floori((p.y-C.y)/35))
- if sauce_cells.has(cell): return
- sauce_cells[cell]=true
- sauce_dabs.append(p)
- click()
- update_status()
+ if not inside(p,.88): return
+ var changed = false
+ for cell in sauce_goal_cells:
+  if sauce_cells.has(cell): continue
+  var center = C+Vector2(cell)*34.0
+  if center.distance_to(p)<43.0:
+   sauce_cells[cell]=true
+   sauce_dabs.append(center)
+   changed = true
+ if changed:
+  click()
+  update_status()
 
 func add_topping(p: Vector2) -> void:
- if not inside(p,.76) or toppings.size()>=64: return
- if not free and topping_count(selected)>=int(book[recipe]["portion"])+2: return
+ if not inside(p,.82) or toppings.size()>=64: return
+ if not free and topping_count(selected)>=ingredient_quota(): return
  for item in toppings:
   var other: Vector2 = item["p"]
-  if other.distance_to(p)<30: return
+  if other.distance_to(p)<36: return
  toppings.append({"key":selected,"p":p})
+ if not free and topping_count(selected)>=ingredient_quota():
+  for key in book[recipe]["ingredients"]:
+   if topping_count(str(key))<ingredient_quota():
+    selected = str(key)
+    break
  click()
  update_status()
 
 func apply_cut(a: Vector2,b: Vector2) -> void:
- if a.distance_to(b)<R*0.85: return
- var mid = (a+b)*.5
- if mid.distance_to(C)>R*.33: return
+ if a.distance_to(b)<radius_for((b-a).angle())*.62: return
+ var segment = b-a
+ var t = clampf((C-a).dot(segment)/maxf(segment.length_squared(),1),0,1)
+ if (a+segment*t).distance_to(C)>R*.48: return
  var angle = fposmod((b-a).angle(),PI)
  var target = float(cuts.size())*PI/float(required_slices())
  var gap = absf(angle-target)
- if minf(gap,PI-gap)>0.55: return
+ if minf(gap,PI-gap)>0.95: return
  cuts.append(target)
  click()
  update_status()
@@ -700,7 +775,11 @@ func _process(delta: float) -> void:
    heat=minf(1.0,heat+delta*.11)
    if heat>=1.0: stop_bake()
    update_status()
-  if phase==5: pack_anim=minf(1.0,pack_anim+delta)
+  if phase==5:
+   pack_anim=minf(1.0,pack_anim+delta)
+   if packing:
+    pack_time+=delta
+    if pack_time>=0.85: advance()
   if phase==3 or phase==5: queue_redraw()
 
 func setup_audio() -> void:
@@ -827,7 +906,7 @@ func smoke() -> void:
  advance()
  assert(phase==2)
  for key in book[recipe]["ingredients"]:
-  for i in range(int(book[recipe]["portion"])):
+  for i in range(ingredient_quota()):
    toppings.append({"key":key,"p":C+Vector2(i*10,0)})
  advance()
  assert(phase==3)
@@ -839,7 +918,13 @@ func smoke() -> void:
  advance()
  assert(phase==5)
  advance()
+ pack_time = 1.0
+ advance()
  assert(screen=="result")
+ assert(unlocked>=1)
+ var before = recipe
+ start_recipe(book.size()-1,false)
+ assert(recipe==before)
  go("book")
  assert(ui.get_child_count()>0)
  go("kitchens")
@@ -847,3 +932,38 @@ func smoke() -> void:
  go("gallery")
  print("PIZZAVITO_SMOKE_OK")
  get_tree().quit()
+
+func ingredient_quota() -> int:
+ if free: return 3
+ return 3 if recipe<10 else (4 if recipe<30 else 5)
+
+func build_sauce_grid() -> void:
+ sauce_goal_cells.clear()
+ for x in range(-6,7):
+  for y in range(-6,7):
+   var cell = Vector2i(x,y)
+   if inside(C+Vector2(cell)*34.0,.73): sauce_goal_cells.append(cell)
+
+func assist_cut() -> void:
+ if phase!=4 or cuts.size()>=required_slices(): return
+ cuts.append(float(cuts.size())*PI/float(required_slices()))
+ click()
+ update_status()
+
+func assist_step() -> void:
+ if phase==0:
+  dough_progress = minf(1.0,dough_progress+.34)
+ elif phase==1:
+  for cell in sauce_goal_cells:
+   if not sauce_cells.has(cell):
+    apply_sauce(C+Vector2(cell)*34.0)
+    break
+ elif phase==2:
+  for i in range(36):
+   var a = float(i)*2.39996
+   var radius = sqrt(float(i+1)/36.0)*radius_for(a)*.74
+   var p = C+Vector2(cos(a),sin(a))*radius
+   var before = toppings.size()
+   add_topping(p)
+   if toppings.size()>before: break
+ update_status()
