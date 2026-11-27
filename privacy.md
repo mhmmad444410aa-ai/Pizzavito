@@ -1,0 +1,2 @@
+# Pizzavito — prototype privacy notice
+This prototype is designed to work offline. It stores selected language and game progress locally on the device. It does not include advertising, analytics, accounts, location, contacts, chat, or external links in the game. Uninstalling the app or clearing app data removes local progress. This notice is provisional and must be verified against the final signed APK and updated with developer contact information and a public HTTPS URL before any store submission.

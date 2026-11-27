@@ -1,0 +1,5 @@
+.godot/
+assets/imported/
+build/
+*.keystore
+*.jks
