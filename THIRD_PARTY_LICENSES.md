@@ -5,3 +5,5 @@ The fetch script selects food and kitchen models only.
 Actual imported files and hashes are written to assets/imported/manifest.json and uploaded by CI. No external music. Other proposed packs are not included until their redistribution terms and content are verified.
 
 Fallback mirror for Kenney Food Kit: https://github.com/WaviestSun/atelier-packs, packs-2 release, SHA-256 checked. KayKit fallback uses GitHub codeload for the same pinned revision.
+
+Revision 1.0.1 expands the selected KayKit kitchen models (cabinet, hood, jars, dishes, knife, crates, sliced ingredients) from the existing pinned CC0 pack. Short tactile noise effect is original procedural audio; no music.
