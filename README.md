@@ -18,3 +18,6 @@ Ingredient shopping before cooking, 30 illustrated recipe cards, visible ingredi
 
 ## 2.1.0 progression and touch overhaul
 Home presentation preserved. Sequential locked recipes, contiguous legacy progress, reduced ingredient quotas, interpolated wide sauce brush, visible counts and auto selection, forgiving cuts, assist actions, packaging animation, external ingredient thumbnails and optional distinct CC0 worktop surfaces. New visuals and actual package size depend on CI and device review.
+
+## 2.2.0 market, challenge and art update
+Original illustrated launcher, 10 selectable free-play dough shapes, shopping challenge from level 4, position-guided topping challenge from level 6, scaled rolling/sauce/cutting/oven difficulty, placement effects and distinct stage surfaces from CC0 ambientCG. UI skin uses CC0 Kenney where download succeeds. Sequential campaign preserved. No coercive engagement features. CI smoke tests cover market and topping target as well as original stages. Pending real-device QA and production signing.

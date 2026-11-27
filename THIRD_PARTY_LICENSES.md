@@ -18,3 +18,5 @@ Four UI glyphs from Lucide, pinned 4bf621064bed45d114ba31435b85760513830d1c, sou
 Quaternius Ultimate Crops Pack, CC0: https://quaternius.com/packs/ultimatecrops.html. Four harvested crop meshes from https://github.com/trebeljahr/quaternius-showcase at 0128ca510d653bb04d6d1e4885bd8890b5050b4f, checked against Git blob hashes. Kenney Food Kit previews remain CC0. Recipe illustrations, icon and food textures are original procedural artwork.
 
 2.1.0: optional ambientCG CC0 colour maps Marble019, Tiles091 and Wood019 are used in the cooking surface; https://ambientcg.com/view?id=Marble019 ; https://ambientcg.com/view?id=Tiles091 ; https://ambientcg.com/view?id=Wood019 . Kenney Food Kit previews, when available, appear in ingredient tray. No filler files.
+
+Additional stage surfaces: ambientCG Wood001, Tiles062, Tiles055, Marble001, Wood091B (CC0, https://docs.ambientcg.com/license/). Optional Kenney UI Pack from https://opengameart.org/content/ui-pack (CC0). Original launcher vector artwork.
