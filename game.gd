@@ -51,7 +51,6 @@ var stage_label: Label
 var menu_panel: PanelContainer
 var menu_title: Label
 var menu_body: Label
-var ingredient_buttons: HBoxContainer
 var camera_goal = Vector3(0,7.6,8.5)
 var camera_focus = Vector3(0,1.2,0.6)
 var camera_zoom = 7.4
@@ -492,7 +491,10 @@ func refresh() -> void:
  menu_panel.visible = phase == -1
  menu_title.text = localise("Pizza studio","استوديو البيتزا","Estúdio de pizza")
  menu_body.text = localise("Make your own pizza! 10 recipes • 2 kitchens • 5 cooking steps","اصنع بيتزتك! ١٠ وصفات • مطبخان • ٥ خطوات","Crie sua pizza! 10 receitas • 2 cozinhas • 5 etapas")
- stage_label.text = "" if phase < 0 else "   ".join([("●" if i<=phase else "○")+" "+str(i+1) for i in range(5)])
+ var stages: Array[String] = []
+ for i in range(5):
+  stages.append(("●" if i<=phase else "○")+" "+str(i+1))
+ stage_label.text = "" if phase < 0 else "   ".join(stages)
  set_camera_for_phase()
  detail.text = t(7)+": "+t(20+theme)
  tally.text = ""
