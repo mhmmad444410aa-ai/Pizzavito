@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       GODOT_VERSION: 4.5.1
@@ -39,13 +39,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$RUNNER_TEMP/android-sdk}}"
+          mkdir -p "$sdk"
+          manager="$(find "$sdk/cmdline-tools" -path '*/bin/sdkmanager' -type f 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$manager" ] || [ ! -x "$manager" ]; then
+            curl -fsSL --retry 3 "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o "$RUNNER_TEMP/android-commandline.zip"
+            mkdir -p "$RUNNER_TEMP/android-commandline" "$sdk/cmdline-tools"
+            unzip -q "$RUNNER_TEMP/android-commandline.zip" -d "$RUNNER_TEMP/android-commandline"
+            mv "$RUNNER_TEMP/android-commandline/cmdline-tools" "$sdk/cmdline-tools/ci"
+            manager="$sdk/cmdline-tools/ci/bin/sdkmanager"
+          fi
+          test -x "$manager"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          echo "$(dirname "$manager")" >> "$GITHUB_PATH"
+          echo "$sdk/platform-tools" >> "$GITHUB_PATH"
+          "$manager" --sdk_root="$sdk" --version
           set +o pipefail
-          yes | sdkmanager --sdk_root="$sdk" --licenses >/dev/null
-          license_status=$?
+          yes | "$manager" --sdk_root="$sdk" --licenses >/dev/null
           set -o pipefail
-          test "$license_status" -eq 0
-          sdkmanager --sdk_root="$sdk" "platform-tools" "build-tools;35.0.0" "platforms;android-35"
+          "$manager" --sdk_root="$sdk" "platform-tools" "build-tools;35.0.0" "platforms;android-35"
+          test -x "$sdk/build-tools/35.0.0/apksigner"
+          test -x "$sdk/build-tools/35.0.0/zipalign"
           mkdir -p "$HOME/.config/godot" build
           printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "$sdk" "$JAVA_HOME" > "$HOME/.config/godot/editor_settings-4.5.tres"
       - name: Download and select CC0 source models
