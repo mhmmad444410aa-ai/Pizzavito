@@ -1,7 +1,7 @@
 extends Control
 # Rebuilt touch-first 2.5D cooking studio. Old 3D prototype is retained in git history.
-const C = Vector2(620,375)
-const R = 205.0
+const C = Vector2(570,366)
+const R = 235.0
 const ART = "res://rebuild/art/"
 const LANGS = ["en","ar","pt"]
 const FOODS = ["tomato","mushroom","cheese","pepper","onion","olive","corn","carrot","basil"]
@@ -80,7 +80,7 @@ func _ready() -> void:
  mouse_filter = Control.MOUSE_FILTER_IGNORE
  build_recipes()
  var cfg = ConfigFile.new()
- if cfg.load("user://studio.cfg")==OK:
+ if cfg.load("user://studio_progress_v3.cfg")==OK:
   lang = clampi(int(cfg.get_value("studio","lang",0)),0,2)
   kitchen = clampi(int(cfg.get_value("studio","kitchen",0)),0,3)
   scores = cfg.get_value("studio","scores",{})
@@ -272,7 +272,9 @@ func book_ui() -> void:
   label(card,str(i+1)+". "+str(rec["names"][lang]),Rect2(169,13,195,72),23,Color("#355b4a"),true)
   var stars = int(scores.get(str(i),0))
   label(card,tr3("Locked","مغلقة","Bloqueada") if locked else "★".repeat(stars)+"☆".repeat(3-stars),Rect2(169,83,195,42),25,Color("#82654d") if locked else Color("#d08b35"))
-  if locked: card.modulate = Color("#b3aa9c")
+  if locked:
+   card.modulate = Color("#aaa49b")
+   label(card,"🔒",Rect2(18,18,64,64),36,Color("#554b42"))
   var ingredients: Array = rec["ingredients"]
   for n in range(mini(ingredients.size(),4)):
    image_node(card,str(ingredients[n]),Rect2(169+n*46,128,43,43))
@@ -322,7 +324,7 @@ func set_lang(index: int) -> void:
  rebuild_ui()
 
 func start_recipe(index: int, freestyle: bool) -> void:
- if not freestyle and (index<0 or index>unlocked): return
+ if not freestyle and (index<0 or index>=book.size() or index>unlocked): return
  recipe = clampi(index,0,book.size()-1)
  free = freestyle
  var rec = book[recipe]
@@ -366,14 +368,14 @@ func cook_ui() -> void:
   var step_col = Color("#4c876c") if i<=phase else Color("#d5b893")
   panel(ui,Rect2(762+i*76,35,57,45),step_col,step_col.darkened(.18))
   label(ui,str(i+1),Rect2(762+i*76,35,57,45),25,Color("#fff6dd"))
- panel(ui,Rect2(24,124,200,478),Color("#fff1d9"),Color("#c68e5c"))
- label(ui,tr3("YOUR ORDER","طلبك","SEU PEDIDO"),Rect2(33,136,182,40),23,Color("#a65338"))
- label(ui,tr3("Free kitchen","المطبخ الحر","Cozinha livre") if free else str(book[recipe]["names"][lang]),Rect2(33,177,182,66),28)
- image_node(ui,"recipe_"+str(recipe),Rect2(44,246,160,160))
- label(ui,shape_label(shape_kind)+"\n"+food_name(sauce_kind),Rect2(33,412,182,75),24)
+ panel(ui,Rect2(24,124,128,478),Color("#fff1d9"),Color("#c68e5c"))
+ label(ui,tr3("YOUR ORDER","طلبك","SEU PEDIDO"),Rect2(30,136,116,40),23,Color("#a65338"))
+ label(ui,tr3("Free kitchen","المطبخ الحر","Cozinha livre") if free else str(book[recipe]["names"][lang]),Rect2(30,177,116,80),20)
+ image_node(ui,"recipe_"+str(recipe),Rect2(30,260,116,116))
+ label(ui,shape_label(shape_kind)+"\n"+food_name(sauce_kind),Rect2(30,382,116,90),19)
  var order_items: Array = book[recipe]["ingredients"] if not free else []
  for i in range(mini(order_items.size(),4)):
-  image_node(ui,str(order_items[i]),Rect2(33+(i%3)*59,490+int(i/3)*51,54,50))
+  image_node(ui,str(order_items[i]),Rect2(31+(i%2)*55,480+int(i/2)*51,50,48))
  panel(ui,Rect2(980,124,276,478),Color("#fff1d9"),Color("#c68e5c"))
  status = label(ui,"",Rect2(995,136,246,106),27)
  progress_label = label(ui,"",Rect2(995,527,246,58),23,Color("#a85a3d"))
@@ -434,7 +436,7 @@ func undo_topping() -> void:
  queue_redraw()
 
 func sauce_target() -> int:
- return maxi(1,ceili(sauce_goal_cells.size()*0.64))
+ return maxi(1,ceili(sauce_goal_cells.size()*0.48))
 
 func topping_target() -> int:
  return 8 if free else ingredient_quota()*book[recipe]["ingredients"].size()
@@ -531,7 +533,7 @@ func advance() -> void:
   if not free:
    scores[str(recipe)] = maxi(int(scores.get(str(recipe),0)),finish_score)
    if recipe==unlocked: unlocked = mini(book.size()-1,unlocked+1)
-  persist()
+  if not "--smoke-test" in OS.get_cmdline_user_args(): persist()
   go("result")
   return
  phase+=1
@@ -587,18 +589,18 @@ func _draw() -> void:
   draw_rect(Rect2(0,0,1280,720),Color(0.15,0.18,0.13,0.25))
   return
  # An isolated bright work surface keeps the cooking action separate from the background.
- draw_style_box(panel_style(Color("#754b32"),Color("#ad8558"),38),Rect2(237,126,728,476))
+ draw_style_box(panel_style(Color("#754b32"),Color("#ad8558"),38),Rect2(166,116,800,496))
  var material_key = ["wood","marble","tile","stone"][kitchen]
  if materials_2d.has(material_key):
-  draw_texture_rect(materials_2d[material_key],Rect2(248,137,706,454),false,Color(0.87,0.83,0.76))
- draw_style_box(panel_style(Color(0.98,0.86,0.69,0.72),Color("#b28857"),35),Rect2(267,143,688,442))
+  draw_texture_rect(materials_2d[material_key],Rect2(177,127,778,474),false,Color(0.87,0.83,0.76))
+ draw_style_box(panel_style(Color(0.98,0.86,0.69,0.22),Color("#b28857"),35),Rect2(183,133,766,462))
  if phase!=3 and phase!=5:
-  draw_circle(C+Vector2(0,9),226,Color(0.23,0.13,0.06,0.25))
-  draw_circle(C,226,Color("#b27e4e"))
-  draw_circle(C,217,Color("#dfb37d"))
-  draw_arc(C,210,0,TAU,96,Color("#bc8b5a"),3,true)
+  draw_circle(C+Vector2(0,9),249,Color(0.23,0.13,0.06,0.25))
+  draw_circle(C,249,Color("#b27e4e"))
+  draw_circle(C,243,Color("#dfb37d"))
+  draw_arc(C,240,0,TAU,96,Color("#bc8b5a"),3,true)
  if phase==3:
-  draw_image("oven",Rect2(305,120,630,494))
+  draw_image("oven",Rect2(255,112,630,494))
   draw_pizza(0.69,Vector2(0,34))
   var bar = Rect2(424,558,392,22)
   draw_style_box(panel_style(Color("#573b30"),Color("#704e37"),10),bar)
@@ -609,11 +611,11 @@ func _draw() -> void:
     var t = fposmod(tick*0.6+i*.17,1.0)
     draw_circle(Vector2(480+i*55+sin(tick*2+i)*12,280-t*90),9+t*13,Color(1,0.87,0.63,(1-t)*.30))
  elif phase==5:
-  draw_image("box",Rect2(315,120,610,478))
+  draw_image("box",Rect2(265,120,610,478))
   draw_pizza(0.82,Vector2(0,12))
   if packing:
    var lid_h = 370.0*smoothstep(0.0,0.85,pack_time)
-   draw_style_box(panel_style(Color("#d0a46f"),Color("#9a673f"),14),Rect2(365,192,510,lid_h+1))
+   draw_style_box(panel_style(Color("#d0a46f"),Color("#9a673f"),14),Rect2(315,192,510,lid_h+1))
   if pack_anim>0:
    for i in range(14):
     var a = float(i)*2.399
@@ -665,8 +667,11 @@ func draw_pizza(scale_factor: float,shift: Vector2=Vector2.ZERO) -> void:
     var sector = floorf(fposmod(a,TAU)/(TAU/float(required_slices()*2)))
     var mid = (sector+.5)*TAU/float(required_slices()*2)
     offset+=Vector2(cos(mid),sin(mid))*6
-   var side = 54.0*scale_factor
-   draw_image(str(item["key"]),Rect2(C+offset-Vector2.ONE*side*.5,Vector2.ONE*side),Color(1,1,1,1))
+   var side = 65.0*scale_factor
+   var food_key = str(item["key"])
+   var area = Rect2(C+offset-Vector2.ONE*side*.5,Vector2.ONE*side)
+   draw_circle(C+offset+Vector2(2,4)*scale_factor,side*.30,Color(0.25,0.12,0.04,0.20))
+   draw_image(food_key,area)
  if phase==4:
   if cut_hint and cuts.size()<required_slices():
    var a = float(cuts.size())*PI/float(required_slices())
@@ -698,7 +703,7 @@ func _input(event: InputEvent) -> void:
       dragging_tool=true
       update_status()
       return
-   if phase<=4 and phase!=3 and inside(p,1.25):
+   if phase<=4 and phase!=3 and inside(p,1.40):
     dragging=true
     dragging_tool=phase==2
     if phase==1: apply_sauce(p)
@@ -715,8 +720,8 @@ func _input(event: InputEvent) -> void:
   var p = event.position
   var distance = p.distance_to(last)
   if phase==0 and inside(p,1.08):
-   dough_progress=minf(1.0,dough_progress+distance/620.0)
-   roller_at=p
+   dough_progress=minf(1.0,dough_progress+distance/390.0)
+   roller_at=roller_at.lerp(p,.65)
   elif phase==1:
    for i in range(1,maxi(1,ceili(distance/18.0))+1):
     apply_sauce(last.lerp(p,float(i)/maxi(1,ceili(distance/18.0))))
@@ -726,12 +731,12 @@ func _input(event: InputEvent) -> void:
   update_status()
 
 func apply_sauce(p: Vector2) -> void:
- if not inside(p,.88): return
+ if not inside(p,.98): return
  var changed = false
  for cell in sauce_goal_cells:
   if sauce_cells.has(cell): continue
   var center = C+Vector2(cell)*34.0
-  if center.distance_to(p)<43.0:
+  if center.distance_to(p)<56.0:
    sauce_cells[cell]=true
    sauce_dabs.append(center)
    changed = true
@@ -740,11 +745,13 @@ func apply_sauce(p: Vector2) -> void:
   update_status()
 
 func add_topping(p: Vector2) -> void:
- if not inside(p,.82) or toppings.size()>=64: return
+ if not inside(p,.94) or toppings.size()>=64: return
+ if not inside(p,.77):
+  p = C+(p-C).normalized()*radius_for((p-C).angle())*.76
  if not free and topping_count(selected)>=ingredient_quota(): return
  for item in toppings:
   var other: Vector2 = item["p"]
-  if other.distance_to(p)<36: return
+  if other.distance_to(p)<29: return
  toppings.append({"key":selected,"p":p})
  if not free and topping_count(selected)>=ingredient_quota():
   for key in book[recipe]["ingredients"]:
@@ -755,14 +762,14 @@ func add_topping(p: Vector2) -> void:
  update_status()
 
 func apply_cut(a: Vector2,b: Vector2) -> void:
- if a.distance_to(b)<radius_for((b-a).angle())*.62: return
+ if a.distance_to(b)<radius_for((b-a).angle())*.40: return
  var segment = b-a
  var t = clampf((C-a).dot(segment)/maxf(segment.length_squared(),1),0,1)
- if (a+segment*t).distance_to(C)>R*.48: return
+ if (a+segment*t).distance_to(C)>R*.65: return
  var angle = fposmod((b-a).angle(),PI)
  var target = float(cuts.size())*PI/float(required_slices())
  var gap = absf(angle-target)
- if minf(gap,PI-gap)>0.95: return
+ if minf(gap,PI-gap)>1.30: return
  cuts.append(target)
  click()
  update_status()
@@ -890,7 +897,11 @@ func show_model(key: String) -> void:
    preview_pivot.scale=Vector3.ONE*(1.7/longest)
 
 func smoke() -> void:
+ scores.clear()
+ unlocked=0
  assert(book.size()==50)
+ start_recipe(1,false)
+ assert(screen=="home")
  for i in range(book.size()): assert(ResourceLoader.exists(ART+"recipe_"+str(i)+".svg"))
  for item in book:
   assert(item["ingredients"].size()>=3)
@@ -935,7 +946,7 @@ func smoke() -> void:
 
 func ingredient_quota() -> int:
  if free: return 3
- return 3 if recipe<10 else (4 if recipe<30 else 5)
+ return 2 if recipe<3 else (3 if recipe<10 else (4 if recipe<30 else 5))
 
 func build_sauce_grid() -> void:
  sauce_goal_cells.clear()
