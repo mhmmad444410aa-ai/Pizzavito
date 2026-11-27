@@ -8,7 +8,7 @@ SOURCES = {
 }
 WANTED = {
     "kenney": {"pizza": ["pizza"], "tomato": ["tomato"], "mushroom": ["mushroom"], "cheese": ["cheese"], "pepper": ["pepper"], "onion": ["onion"], "plate": ["plate"]},
-    "kaykit": {"oven": ["oven", "stove"], "fridge": ["fridge", "refrigerator"], "counter": ["counter", "cabinet"], "board": ["cuttingboard", "choppingboard", "cutting_board", "chopping_board"], "bowl": ["bowl"], "sink": ["sink"]},
+    "kaykit": {"oven": ["oven", "stove"], "fridge": ["fridge", "refrigerator"], "counter": ["counter", "cabinet", "worktop", "kitchen_table"], "board": ["cuttingboard", "choppingboard", "cutting_board", "chopping_board"], "bowl": ["bowl"], "sink": ["sink"]},
 }
 def norm(s):
     return re.sub(r"[^a-z0-9]", "", s.lower())
@@ -54,10 +54,28 @@ def main():
             root = pathlib.Path(tmp) / pack
             root.mkdir()
             archive = pathlib.Path(tmp) / (pack + ".zip")
-            subprocess.run(["curl", "--fail", "--location", "--retry", "3", "--max-time", "120", "-o", str(archive), url], check=True)
+            print("Fetching", pack, url, flush=True)
+            candidates = [(url, None)]
+            if pack == "kenney":
+                candidates.append(("https://github.com/WaviestSun/atelier-packs/releases/download/packs-2/kenney_food-kit.zip", "cdad90853682499b94c9fda2f87678b24bfd8f3264e0ed323f6b6a27fd7c6f6f"))
+            if pack == "kaykit":
+                candidates.append(("https://codeload.github.com/KayKit-Game-Assets/KayKit-Restaurant-Bits-1.0/zip/153c8a7535b48237854cb54ff6890679f8c574d1", None))
+            for candidate, checksum in candidates:
+                try:
+                    subprocess.run(["curl", "--fail", "--location", "--retry", "2", "--max-time", "90", "--user-agent", "PizzavitoAssetBuilder/1.0", "-o", str(archive), candidate], check=True)
+                    if not zipfile.is_zipfile(archive):
+                        raise ValueError("Downloaded file is not a ZIP")
+                    if checksum and hashlib.sha256(archive.read_bytes()).hexdigest() != checksum:
+                        raise ValueError("Fallback archive checksum mismatch")
+                    break
+                except (subprocess.CalledProcessError, ValueError) as err:
+                    print("Asset download failed:", candidate, err, flush=True)
+            else:
+                raise SystemExit("All download sources failed: " + pack)
             with zipfile.ZipFile(archive) as z:
                 safe_extract(z, root)
             models = [p for p in root.rglob("*") if p.suffix.lower() in (".glb", ".gltf")]
+            print(pack, "model count:", len(models), flush=True)
             for key, terms in WANTED[pack].items():
                 options = [p for p in models if any(norm(t) in norm(p.stem) for t in terms) and not any(x in p.stem.lower() for x in ("bacon","pork","ham","beer","wine","sausage","salami","pepperoni"))]
                 if not options:

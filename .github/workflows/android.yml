@@ -40,11 +40,20 @@ jobs:
         run: |
           set -euo pipefail
           sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          set +o pipefail
+          yes | sdkmanager --sdk_root="$sdk" --licenses >/dev/null
+          license_status=$?
+          set -o pipefail
+          test "$license_status" -eq 0
           sdkmanager --sdk_root="$sdk" "platform-tools" "build-tools;35.0.0" "platforms;android-35"
           mkdir -p "$HOME/.config/godot" build
           printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "$sdk" "$JAVA_HOME" > "$HOME/.config/godot/editor_settings-4.5.tres"
       - name: Download and select CC0 source models
-        run: python3 tools/fetch_assets.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          python3 -u tools/fetch_assets.py 2>&1 | tee build/assets.log
       - name: Import project and run smoke test
         shell: bash
         run: |
