@@ -1,4 +1,5 @@
-import hashlib, json, pathlib, re, shutil, subprocess, tempfile, urllib.request, zipfile
+import hashlib, json, pathlib, re, shutil, struct, subprocess, tempfile, zipfile
+from urllib.parse import unquote
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets/imported"
@@ -19,29 +20,62 @@ def safe_extract(z, root):
             raise ValueError("Unsafe archive path")
     z.extractall(root)
 def copy_model(src, dest, root):
+    """Preserve external images/buffers for both GLB and textual glTF.
+    GLB is not necessarily self-contained; retain all original binary chunks.
+    """
     dest.mkdir(parents=True, exist_ok=True)
     target = dest / src.name
-    shutil.copy2(src, target)
-    if src.suffix.lower() == ".gltf":
-        doc = json.loads(src.read_text(encoding="utf-8"))
-        for part in doc.get("buffers", []) + doc.get("images", []):
-            uri = part.get("uri", "")
-            if not uri or uri.startswith("data:"):
-                continue
-            from urllib.parse import unquote
-            uri = unquote(uri)
-            dependency = (src.parent / uri).resolve()
-            if not dependency.is_relative_to(root.resolve()) or not dependency.is_file():
-                raise ValueError(f"Missing/unsafe model dependency: {dependency}")
-            relative = pathlib.Path(uri)
-            if relative.is_absolute() or ".." in relative.parts:
-                # Rewrite references into a private dependency folder.
-                new = "deps/" + hashlib.sha256(uri.encode()).hexdigest()[:12] + dependency.suffix
-                part["uri"] = new
-                relative = pathlib.Path(new)
-            dst = dest / relative
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(dependency, dst)
+    is_glb = src.suffix.lower() == ".glb"
+    chunks = []
+    if is_glb:
+        raw = src.read_bytes()
+        magic, version, size = struct.unpack_from("<4sII", raw)
+        if magic != b"glTF" or version != 2 or size != len(raw):
+            raise ValueError("Invalid GLB: " + str(src))
+        offset = 12
+        while offset < size:
+            count, kind = struct.unpack_from("<I4s", raw, offset)
+            offset += 8
+            if offset + count > size:
+                raise ValueError("Truncated GLB: " + str(src))
+            chunks.append((kind, raw[offset:offset+count]))
+            offset += count
+        if not chunks or chunks[0][0] != b"JSON":
+            raise ValueError("Missing GLB JSON chunk")
+        doc = json.loads(chunks[0][1].decode("utf-8").rstrip(" \x00"))
+    else:
+        doc = json.loads(src.read_text(encoding="utf-8-sig"))
+
+    for part in doc.get("buffers", []) + doc.get("images", []):
+        uri = part.get("uri", "")
+        if not uri or uri.startswith("data:"):
+            continue
+        uri = unquote(uri).replace("\\", "/")
+        dependency = (src.parent / uri).resolve()
+        if not dependency.is_relative_to(root.resolve()):
+            raise ValueError("Unsafe external resource: " + uri)
+        if not dependency.is_file():
+            # Some packs use case-insensitive paths; only accept an unambiguous file.
+            matches = [q for q in root.rglob("*") if q.is_file() and q.name.casefold() == pathlib.Path(uri).name.casefold()]
+            if len(matches) != 1:
+                raise ValueError(f"Missing or ambiguous external resource {uri} for {src}")
+            dependency = matches[0].resolve()
+        if not dependency.is_relative_to(root.resolve()):
+            raise ValueError("Unsafe dependency: " + str(dependency))
+        new_uri = "deps/" + hashlib.sha256(uri.encode()).hexdigest()[:12] + dependency.suffix.lower()
+        dst = dest / new_uri
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(dependency, dst)
+        part["uri"] = new_uri
+        print("Copied model dependency:", src.name, uri, flush=True)
+
+    if is_glb:
+        encoded = json.dumps(doc, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        encoded += b" " * ((-len(encoded)) % 4)
+        chunks[0] = (b"JSON", encoded)
+        body = b"".join(struct.pack("<I4s", len(data), kind) + data for kind, data in chunks)
+        target.write_bytes(struct.pack("<4sII", b"glTF", 2, 12 + len(body)) + body)
+    else:
         target.write_text(json.dumps(doc), encoding="utf-8")
     return target
 def main():

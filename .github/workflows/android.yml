@@ -68,27 +68,32 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build
+          python3 -m py_compile tools/fetch_assets.py
           python3 -u tools/fetch_assets.py 2>&1 | tee build/assets.log
       - name: Import project and run smoke test
         shell: bash
         run: |
           set -euo pipefail
           godot --headless --editor --path . --import 2>&1 | tee build/import.log
-          if grep -E 'SCRIPT ERROR|Parse Error' build/import.log; then exit 1; fi
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:|couldn.t be loaded as a buffer' build/import.log; then exit 1; fi
           timeout 90 godot --headless --path . -- --smoke-test 2>&1 | tee build/smoke.log
           grep -q PIZZAVITO_SMOKE_OK build/smoke.log
-          if grep -E 'SCRIPT ERROR|Parse Error' build/smoke.log; then exit 1; fi
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR:' build/smoke.log; then exit 1; fi
       - name: Export and sign test APK
         shell: bash
         run: |
           set -euo pipefail
           sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           tools="$sdk/build-tools/35.0.0"
-          godot --headless --path . --export-debug Android "$PWD/build/test-unsigned.apk" 2>&1 | tee build/export.log
+          test -f "$HOME/.local/share/godot/export_templates/$GODOT_VERSION.stable/android_debug.apk"
+          grep -q "^textures/vram_compression/import_etc2_astc=true$" project.godot
+          godot --headless --verbose --path . --export-debug Android "$PWD/build/test-unsigned.apk" 2>&1 | tee build/export.log
           keytool -genkeypair -keystore "$RUNNER_TEMP/test.jks" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=Pizzavito Test"
-          "$tools/zipalign" -p -f 4 build/test-unsigned.apk build/test-aligned.apk
+          "$tools/zipalign" -P 16 -f 4 build/test-unsigned.apk build/test-aligned.apk
           "$tools/apksigner" sign --ks "$RUNNER_TEMP/test.jks" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/Pizzavito-TEST.apk build/test-aligned.apk
-          "$tools/apksigner" verify --print-certs build/Pizzavito-TEST.apk > build/test-certificate.txt
+          "$tools/apksigner" verify --verbose --print-certs build/Pizzavito-TEST.apk > build/test-certificate.txt
+          "$tools/zipalign" -c -P 16 4 build/Pizzavito-TEST.apk
+          python3 tools/verify_apk.py build/Pizzavito-TEST.apk
           rm build/test-unsigned.apk build/test-aligned.apk
       - name: Optional production Release APK
         if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_PASSWORD != '' }}
@@ -101,9 +106,11 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           trap 'rm -f "$RUNNER_TEMP/release.jks"' EXIT
           godot --headless --path . --export-release Android "$PWD/build/release-unsigned.apk"
-          "$tools/zipalign" -p -f 4 build/release-unsigned.apk build/release-aligned.apk
+          "$tools/zipalign" -P 16 -f 4 build/release-unsigned.apk build/release-aligned.apk
           "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out build/Pizzavito-RELEASE.apk build/release-aligned.apk
-          "$tools/apksigner" verify --print-certs build/Pizzavito-RELEASE.apk > build/release-certificate.txt
+          "$tools/apksigner" verify --verbose --print-certs build/Pizzavito-RELEASE.apk > build/release-certificate.txt
+          "$tools/zipalign" -c -P 16 4 build/Pizzavito-RELEASE.apk
+          python3 tools/verify_apk.py build/Pizzavito-RELEASE.apk
           rm build/release-unsigned.apk build/release-aligned.apk
       - uses: actions/upload-artifact@v4
         if: always()
