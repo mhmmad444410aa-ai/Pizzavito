@@ -70,6 +70,8 @@ jobs:
           mkdir -p build
           python3 -m py_compile tools/fetch_assets.py
           python3 -u tools/fetch_assets.py 2>&1 | tee build/assets.log
+          python3 -m py_compile tools/fetch_visuals.py
+          python3 -u tools/fetch_visuals.py 2>&1 | tee build/visuals.log
       - name: Import project and run smoke test
         shell: bash
         run: |
@@ -121,4 +123,5 @@ jobs:
             build/*.log
             build/*-certificate.txt
             assets/imported/manifest.json
+            assets/imported/visuals-report.json
           if-no-files-found: warn

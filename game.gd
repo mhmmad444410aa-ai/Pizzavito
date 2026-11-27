@@ -5,14 +5,55 @@ const WORDS = {
  "ar": ["بيتزافيتو", "افرد العجين", "وزّع الصلصة ثم أضف المكونات", "اخبز البيتزا وتوقف عند المنطقة الخضراء", "اسحب عبر البيتزا لتقطيعها", "ابدأ الوصفة", "الوصفة التالية", "المطبخ", "صلصة", "طماطم", "فطر", "جبنة", "فلفل", "اخبز", "أوقف", "اكتملت الوصفة!", "مكونات حرة", "وصفة", "إعادة", "تراجع", "إيطالي", "ريفي", "اسحب من المركز نحو الخارج", "اختر المكون والمس البيتزا", "اسحب من حافة إلى أخرى"],
  "pt": ["Pizzavito", "Abra a massa", "Espalhe o molho e adicione ingredientes", "Asse — pare na zona verde", "Deslize pela pizza para cortar", "Iniciar receita", "Próxima receita", "Cozinha", "Molho", "Tomate", "Cogumelo", "Queijo", "Pimentão", "Assar", "Parar", "Receita concluída!", "Ingredientes livres", "Receita", "Reiniciar", "Desfazer", "Italiana", "Rústica", "Arraste do centro para fora", "Escolha um ingrediente e toque na pizza", "Deslize de uma borda à outra"]
 }
-const RECIPES = [
- ["tomato","cheese"], ["mushroom","cheese"], ["pepper","tomato"], ["cheese","pepper"], ["tomato","mushroom"],
- ["pepper","cheese","tomato"], ["mushroom","pepper"], ["cheese","mushroom","tomato"], ["tomato","pepper","mushroom"], ["tomato","mushroom","cheese","pepper"]
+const INGREDIENTS = {
+ "sauce":["Sauce","صلصة","Molho"], "tomato":["Tomato","طماطم","Tomate"], "mushroom":["Mushroom","فطر","Cogumelo"], "cheese":["Cheese","جبنة","Queijo"], "pepper":["Pepper","فلفل","Pimentão"], "onion":["Onion","بصل","Cebola"], "olive":["Olive","زيتون","Azeitona"], "corn":["Corn","ذرة","Milho"], "carrot":["Carrot","جزر","Cenoura"]
+}
+const KINDS = ["sauce","tomato","mushroom","cheese","pepper","onion","olive","corn","carrot"]
+const COLORS = [Color("#ad3826"),Color("#d84b37"),Color("#d9b79b"),Color("#f4d577"),Color("#6da64a"),Color("#aa77b7"),Color("#37462d"),Color("#edc94d"),Color("#e98d37")]
+# Title, shape, ingredients. Each recipe is selectable from the illustrated cookbook.
+const BOOK = [
+ ["Margherita","مارغريتا","Margherita","round",["tomato","cheese"]],
+ ["Forest mushroom","فطر الغابة","Cogumelos","round",["mushroom","cheese"]],
+ ["Garden","خضراوات الحديقة","Horta","round",["pepper","tomato","onion"]],
+ ["Golden corn","الذرة الذهبية","Milho dourado","round",["corn","cheese"]],
+ ["Olive harvest","قطاف الزيتون","Azeitonas","round",["olive","tomato","cheese"]],
+ ["Rainbow","قوس قزح","Arco-íris","round",["pepper","corn","carrot","tomato"]],
+ ["Little heart","قلب صغير","Coração","heart",["tomato","cheese"]],
+ ["Mushroom heart","قلب بالفطر","Coração de cogumelo","heart",["mushroom","onion","cheese"]],
+ ["Garden heart","قلب الخضراوات","Coração da horta","heart",["pepper","corn","carrot"]],
+ ["Olive heart","قلب الزيتون","Coração de azeitona","heart",["olive","cheese","tomato"]],
+ ["Twinkle star","نجمة لامعة","Estrela brilhante","star",["cheese","corn"]],
+ ["Red star","نجمة حمراء","Estrela vermelha","star",["tomato","onion"]],
+ ["Green star","نجمة خضراء","Estrela verde","star",["pepper","olive"]],
+ ["Rainbow star","نجمة قوس قزح","Estrela arco-íris","star",["carrot","corn","pepper","tomato"]],
+ ["Family square","مربع العائلة","Quadrada familiar","square",["cheese","mushroom","tomato"]],
+ ["Market square","مربع السوق","Quadrada da feira","square",["carrot","onion","pepper"]],
+ ["Olive square","مربع الزيتون","Quadrada de azeitona","square",["olive","corn","cheese"]],
+ ["Four colours","أربعة ألوان","Quatro cores","square",["tomato","pepper","corn","onion"]],
+ ["Mini classic","كلاسيكية صغيرة","Mini clássica","mini",["tomato","cheese"]],
+ ["Mini forest","فطر صغيرة","Mini cogumelo","mini",["mushroom","onion"]],
+ ["Mini harvest","حصاد صغير","Mini colheita","mini",["olive","corn"]],
+ ["Mini sunshine","شمس صغيرة","Mini sol","mini",["carrot","cheese"]],
+ ["Party garden","حفلة الخضراوات","Festa da horta","round",["pepper","onion","olive","corn"]],
+ ["Party cheese","حفلة الجبنة","Festa de queijo","square",["cheese","corn","mushroom"]],
+ ["Sunset","الغروب","Pôr do sol","heart",["carrot","tomato","corn"]],
+ ["Spring","الربيع","Primavera","star",["pepper","olive","onion"]],
+ ["Autumn","الخريف","Outono","round",["mushroom","carrot","cheese"]],
+ ["Picnic","نزهة","Piquenique","square",["olive","tomato","carrot"]],
+ ["Celebration","الاحتفال","Celebração","heart",["cheese","pepper","onion","corn"]],
+ ["Chef's special","وصفة الشيف","Especial do chef","star",["tomato","mushroom","cheese","olive","corn"]]
 ]
-const KINDS = ["sauce","tomato","mushroom","cheese","pepper"]
-const COLORS = [Color("#b93828"),Color("#e6543b"),Color("#d9b79b"),Color("#ffe188"),Color("#66a947")]
 var lang = "en"
 var level = 0
+var book_panel: PanelContainer
+var book_grid: GridContainer
+var book_page = 0
+var completed: Array[int] = []
+var topping_positions: Array[Vector3] = []
+var slice_group: Node3D
+var surface_material: StandardMaterial3D
+var toolbar: ScrollContainer
+var shape_kind = "round"
 var theme = 0
 var phase = -1
 var camera: Camera3D
@@ -65,7 +106,9 @@ func _ready() -> void:
  if cfg.load("user://progress.cfg") == OK:
   lang = str(cfg.get_value("game","lang","en"))
   if not WORDS.has(lang): lang = "en"
-  level = clampi(int(cfg.get_value("game","level",0)),0,9)
+  level = clampi(int(cfg.get_value("game","level",0)),0,BOOK.size()-1)
+  for entry in cfg.get_value("game","completed",[]):
+   if int(entry)>=0 and int(entry)<BOOK.size(): completed.append(int(entry))
   theme = clampi(int(cfg.get_value("game","theme",0)),0,1)
  if FileAccess.file_exists("res://assets/imported/manifest.json"):
   var decoded = JSON.parse_string(FileAccess.get_file_as_string("res://assets/imported/manifest.json"))
@@ -92,23 +135,26 @@ func _ready() -> void:
  camera.projection = Camera3D.PROJECTION_ORTHOGONAL
  camera.size = camera_zoom
  camera.current = true
+ setup_surface()
  make_room()
  make_pizza()
  make_ui()
  setup_sound()
  refresh()
  if "--smoke-test" in OS.get_cmdline_user_args():
-  for key in ["pizza","tomato","oven","counter"]:
+  for key in ["pizza","tomato","oven","counter","carrot","onion_rings"]:
    assert(manifest.has(key), "Missing external model "+key)
    assert(ResourceLoader.exists(manifest[key]["path"]), "Model failed import "+key)
+  for recipe_index in range(BOOK.size()):
+   assert(BOOK[recipe_index][4].size()>=2)
+   for ingredient in BOOK[recipe_index][4]: assert(INGREDIENTS.has(ingredient))
   start_recipe()
   stretch = 1.0
   advance()
   assert(phase == 1)
   sauce_amount = 10
-  for kind in RECIPES[level]:
-   placed.append(kind)
-   placed.append(kind)
+  for kind in BOOK[level][4]:
+   for count in range(target_count()): placed.append(kind)
   advance()
   assert(phase == 2)
   heat = 0.72
@@ -119,6 +165,9 @@ func _ready() -> void:
   assert(phase == 4)
   pack_pizza()
   assert(phase == 5)
+  open_book()
+  assert(book_panel.visible)
+  book_panel.visible = false
   print("PIZZAVITO_SMOKE_OK")
   get_tree().quit()
 
@@ -130,6 +179,7 @@ func save_game() -> void:
  cfg.set_value("game","lang",lang)
  cfg.set_value("game","level",level)
  cfg.set_value("game","theme",theme)
+ cfg.set_value("game","completed",completed)
  cfg.save("user://progress.cfg")
 
 func mat(c: Color) -> StandardMaterial3D:
@@ -138,6 +188,7 @@ func mat(c: Color) -> StandardMaterial3D:
  var m = StandardMaterial3D.new()
  m.albedo_color = c
  m.roughness = 0.82
+ m.cull_mode = BaseMaterial3D.CULL_DISABLED
  materials[key] = m
  return m
 
@@ -214,7 +265,8 @@ func make_room() -> void:
  box(room,Vector3(0.09,1.85,0.19),Vector3(0,3.0,-4.0),Color("#fff0cd"))
  box(room,Vector3(3.4,0.08,0.19),Vector3(0,3.0,-4.0),Color("#fff0cd"))
  box(room,Vector3(8.7,1.15,3.7),Vector3(0,0.52,0.6),counter_colour)
- box(room,Vector3(9.0,0.20,3.9),Vector3(0,1.18,0.6),Color("#cfad7b"))
+ var worktop = box(room,Vector3(9.0,0.20,3.9),Vector3(0,1.18,0.6),Color("#cfad7b"))
+ if surface_material!=null: worktop.material_override = surface_material
  for x in range(-4,5):
   box(room,Vector3(0.025,0.012,3.72),Vector3(x,1.285,0.6),Color("#a77b52"))
  for x in [-3.5,-1.2,1.2,3.5]:
@@ -264,16 +316,12 @@ func make_room() -> void:
 func make_pizza() -> void:
  if is_instance_valid(pizza): pizza.queue_free()
  pizza = Node3D.new()
+ shape_kind = BOOK[level][3] if not free_mode else "round"
  pizza.position = Vector3(0,1.38,0.55)
  add_child(pizza)
  disc(pizza,1.93,0.12,Vector3(0,-0.04,0),Color("#a36b3d"))
- dough = disc(pizza,1.62,0.23,Vector3(0,0.13,0),Color("#e5bd79"))
- var rim = TorusMesh.new()
- rim.inner_radius = 1.29
- rim.outer_radius = 1.65
- rim.rings = 48
- rim.ring_segments = 12
- crust = mesh_node(pizza,rim,Color("#c99451"),Vector3(0,0.22,0))
+ dough = mesh_node(pizza, shaped_disk(0.0,1.0,0.18),Color("#e5bd79"),Vector3(0,0.13,0))
+ crust = mesh_node(pizza, shaped_disk(0.82,1.0,0.13),Color("#c99451"),Vector3(0,0.23,0))
  sauce_marks = Node3D.new()
  pizza.add_child(sauce_marks)
  rolling = Node3D.new()
@@ -286,13 +334,15 @@ func make_pizza() -> void:
    var handle = disc(rolling,0.09,0.40,Vector3(x,0,0),Color("#774f35"))
    handle.rotation.z = PI/2
  rolling.visible = false
- sauce = disc(pizza,1.42,0.04,Vector3(0,0.265,0),COLORS[0])
+ sauce = mesh_node(pizza,shaped_disk(0.0,0.81,0.018),COLORS[0],Vector3(0,0.265,0))
  sauce.visible = false
  topping_root = Node3D.new()
  pizza.add_child(topping_root)
  cuts = Node3D.new()
  pizza.add_child(cuts)
  cut_angles.clear()
+ topping_positions.clear()
+ if is_instance_valid(slice_group): slice_group.queue_free()
  if is_instance_valid(package_box): package_box.queue_free()
  if is_instance_valid(oven_station): oven_station.queue_free()
  if is_instance_valid(celebration): celebration.queue_free()
@@ -389,10 +439,16 @@ func make_ui() -> void:
  bottom.offset_bottom = -10
  style_panel(bottom,Color("#123d39"))
  hud.add_child(bottom)
+ toolbar = ScrollContainer.new()
+ toolbar.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+ toolbar.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+ bottom.add_child(toolbar)
  actions = HBoxContainer.new()
+ actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
  actions.alignment = BoxContainer.ALIGNMENT_CENTER
- actions.add_theme_constant_override("separation",10)
- bottom.add_child(actions)
+ actions.add_theme_constant_override("separation",8)
+ toolbar.add_child(actions)
+ make_book()
 
 func style_panel(p: PanelContainer,c: Color) -> void:
  var s = StyleBoxFlat.new()
@@ -411,7 +467,7 @@ func style_panel(p: PanelContainer,c: Color) -> void:
 func make_button(label: String, action: Callable) -> Button:
  var b = Button.new()
  b.text = label
- b.custom_minimum_size = Vector2(94,68)
+ b.custom_minimum_size = Vector2(104,70)
  b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
  b.add_theme_font_size_override("font_size",24)
  for state in ["normal","hover","pressed","disabled"]:
@@ -426,6 +482,7 @@ func make_button(label: String, action: Callable) -> Button:
   s.content_margin_left = 14
   s.content_margin_right = 14
   b.add_theme_stylebox_override(state,s)
+ apply_external_button(b)
  b.pressed.connect(func():
   play_click()
   action.call())
@@ -459,21 +516,22 @@ func start_recipe() -> void:
  baking = false
  selected = "sauce"
  placed.clear()
+ topping_positions.clear()
  dough.scale = Vector3(0.58,1.0,0.58)
  crust.scale = dough.scale
  rolling.visible = true
  refresh()
 
 func next_recipe() -> void:
- level = (level+1)%RECIPES.size()
+ level = (level+1)%BOOK.size()
  save_game()
  start_recipe()
 
 func requirements_met() -> bool:
  if sauce_amount < 8: return false
- if free_mode: return not placed.is_empty()
- for kind in RECIPES[level]:
-  if placed.count(kind) < 2: return false
+ if free_mode: return placed.size()>=4
+ for kind in BOOK[level][4]:
+  if placed.count(kind) < target_count(): return false
  return true
 
 func add_action(label: String, action: Callable, enabled: bool = true) -> void:
@@ -487,10 +545,10 @@ func refresh() -> void:
  for c in actions.get_children():
   actions.remove_child(c)
   c.queue_free()
- title_label.text = t(0)+"  ·  "+t(17)+" "+str(level+1)+"/10"
+ title_label.text = t(0)+"  ·  "+str(level+1)+"/"+str(BOOK.size())+"  "+recipe_name(level)
  menu_panel.visible = phase == -1
  menu_title.text = localise("Pizza studio","استوديو البيتزا","Estúdio de pizza")
- menu_body.text = localise("Make your own pizza! 10 recipes • 2 kitchens • 5 cooking steps","اصنع بيتزتك! ١٠ وصفات • مطبخان • ٥ خطوات","Crie sua pizza! 10 receitas • 2 cozinhas • 5 etapas")
+ menu_body.text = localise("Make your own pizza! 30 recipes • 5 dough shapes • 2 kitchens","اصنع بيتزتك! ٣٠ وصفة • ٥ أشكال للعجين • مطبخان","Crie sua pizza! 30 receitas • 5 formatos • 2 cozinhas")
  var stages: Array[String] = []
  for i in range(5):
   stages.append(("●" if i<=phase else "○")+" "+str(i+1))
@@ -500,6 +558,7 @@ func refresh() -> void:
  tally.text = ""
  meter.visible = phase >= 0 and phase <= 3
  if phase == -1:
+  add_action(localise("Recipe book","دفتر الوصفات","Receitas"),open_book)
   add_action(t(5),start_guided)
   add_action(t(16),start_free)
   add_action(t(7)+": "+t(20+theme),toggle_theme)
@@ -511,13 +570,13 @@ func refresh() -> void:
  elif phase == 1:
   detail.text = t(2)
   var names: Array[String] = []
-  for kind in RECIPES[level]:
-   names.append(t(8+KINDS.find(kind))+" "+str(mini(placed.count(kind),2))+"/2")
-  tally.text = " • ".join(names)
-  meter.value = minf(100,(sauce_amount/8.0)*50+placed.size()*50.0/(RECIPES[level].size()*2))
-  for i in range(KINDS.size()):
-   var kind = KINDS[i]
-   add_action(("● " if selected==kind else "")+t(8+i),func(): choose(kind))
+  for kind in BOOK[level][4]:
+   names.append(ingredient_name(kind)+" "+str(mini(placed.count(kind),target_count()))+"/"+str(target_count()))
+  tally.text = localise("Choose ingredients freely","اختر المكونات بحرية","Escolha os ingredientes") if free_mode else " • ".join(names)
+  meter.value = recipe_progress()
+  var allowed: Array = KINDS if free_mode else ["sauce"]+BOOK[level][4]
+  for kind in allowed:
+   add_ingredient_button(str(kind))
   add_action(t(19),undo,not placed.is_empty())
   add_action("✓",advance,requirements_met())
  elif phase == 2:
@@ -529,9 +588,10 @@ func refresh() -> void:
   add_action("✓",advance,not baking and heat>=0.60 and heat<=0.85)
  elif phase == 3:
   detail.text = t(4)
-  tally.text = t(24)+"  "+str(sliced)+"/3"
+  tally.text = localise("Make three cuts in different directions","ارسم ثلاثة خطوط باتجاهات مختلفة","Faça três cortes em direções diferentes")+"  "+str(sliced)+"/3"
   meter.value = sliced*100.0/3
   add_action("✓",advance,sliced>=3)
+  add_action(localise("Guide","مساعدة","Ajuda"),guided_cut,sliced<3)
  elif phase == 4:
   detail.text = localise("Pack your pizza!","غلّف بيتزتك!","Embale sua pizza!")
   tally.text = localise("Tap the box to close it","اضغط على العلبة لإغلاقها","Toque na caixa para fechar")
@@ -539,6 +599,7 @@ func refresh() -> void:
  elif phase == 5:
   detail.text = t(15)+"  ★★★"
   add_action(t(6),next_recipe)
+  add_action(localise("Recipe book","دفتر الوصفات","Receitas"),open_book)
   add_action(t(7),toggle_theme)
   add_action(localise("Home","الرئيسية","Início"),reset_recipe)
 
@@ -549,6 +610,7 @@ func choose(kind: String) -> void:
 func undo() -> void:
  if placed.is_empty(): return
  placed.pop_back()
+ if not topping_positions.is_empty(): topping_positions.pop_back()
  var children = topping_root.get_children()
  if not children.is_empty():
   var n = children.back()
@@ -577,6 +639,7 @@ func advance() -> void:
   if is_instance_valid(oven_station): oven_station.visible = false
  elif phase == 3 and sliced>=3:
   phase = 4
+  separate_slices()
   make_package()
   save_game()
  refresh()
@@ -610,6 +673,7 @@ func point_on_pizza(screen: Vector2) -> Vector3:
  return local
 
 func _unhandled_input(event: InputEvent) -> void:
+ if is_instance_valid(book_panel) and book_panel.visible: return
  if phase == 4 and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
   if point_on_pizza(event.position).length()<2.15: pack_pizza()
   return
@@ -648,12 +712,16 @@ func _unhandled_input(event: InputEvent) -> void:
   last_world = p
 
 func place_topping(p: Vector3) -> void:
- if p.length()>1.38 or placed.size()>=40: return
+ if not inside_shape(p,0.73) or placed.size()>=64: return
+ for existing in topping_positions:
+  if Vector2(existing.x-p.x,existing.z-p.z).length()<0.23: return
  var kind = selected
  var pos = Vector3(p.x,0.32,p.z)
- var model_key = "tomato_slice" if kind=="tomato" and manifest.has("tomato_slice") else ("cheese_slice" if kind=="cheese" and manifest.has("cheese_slice") else kind)
- if not asset(topping_root,model_key,pos,0.39):
-  disc(topping_root,0.12,0.07,pos,COLORS[KINDS.find(kind)])
+ var model_key = str({"tomato":"tomato_slice","cheese":"cheese_slice","onion":"onion_rings","carrot":"carrot_slice"}.get(kind,kind))
+ var loaded = false
+ if manifest.has(model_key): loaded = asset(topping_root,model_key,pos,0.30)
+ if not loaded: make_topping(topping_root,kind,pos)
+ topping_positions.append(p)
  placed.append(kind)
  play_click()
  refresh()
@@ -662,6 +730,11 @@ func cut_line(a: Vector3,b: Vector3) -> void:
  var axis = (b-a).normalized()
  if axis.length()<0.01: return
  var angle = fposmod(atan2(axis.x,axis.z),PI)
+ if cut_angles.size()>0:
+  var desired = fposmod(cut_angles[0]+float(cut_angles.size())*PI/3.0,PI)
+  var gap = absf(angle-desired)
+  if minf(gap,PI-gap)>0.56: return
+  angle = desired
  for prior in cut_angles:
   var diff = absf(angle-prior)
   if minf(diff,PI-diff)<0.32: return
@@ -700,7 +773,7 @@ func set_camera_for_phase() -> void:
   camera_zoom = 5.3
 
 func paint_sauce(p: Vector3) -> void:
- if p.length()>1.27: return
+ if not inside_shape(p,0.76): return
  if sauce_marks.get_child_count() >= 48: return
  for mark in sauce_marks.get_children():
   if Vector2(mark.position.x-p.x,mark.position.z-p.z).length()<0.24: return
@@ -709,6 +782,7 @@ func paint_sauce(p: Vector3) -> void:
  if sauce_amount>=8:
   sauce.visible = true
   sauce.scale = Vector3(1,1,1)
+  sauce_marks.visible = false
   refresh()
  else:
   meter.value = sauce_amount/8.0*50
@@ -752,6 +826,7 @@ func make_package() -> void:
 func pack_pizza() -> void:
  if phase!=4: return
  phase = 5
+ if not free_mode and not completed.has(level): completed.append(level)
  if is_instance_valid(package_box):
   var lid = package_box.get_node("Lid") as Node3D
   var tween = create_tween()
@@ -790,3 +865,222 @@ func play_click() -> void:
  if is_instance_valid(sound_player) and sfx!=null:
   sound_player.stream = sfx
   sound_player.play()
+
+func language_index() -> int:
+ return 1 if lang=="ar" else (2 if lang=="pt" else 0)
+
+func recipe_name(index: int) -> String:
+ return BOOK[index][language_index()]
+
+func ingredient_name(key: String) -> String:
+ return INGREDIENTS[key][language_index()]
+
+func target_count() -> int:
+ return 3 if level>=10 else 2
+
+func recipe_progress() -> float:
+ var total = 0
+ for kind in BOOK[level][4]:
+  total += mini(placed.count(kind),target_count())
+ if free_mode:
+  return minf(100.0, minf(sauce_amount/8.0,1)*50.0 + minf(placed.size()/4.0,1)*50.0)
+ return minf(100.0,minf(sauce_amount/8.0,1)*50.0+float(total)*50.0/(BOOK[level][4].size()*target_count()))
+
+func radius_at(a: float) -> float:
+ match shape_kind:
+  "heart":
+   return 1.56*(1.0-0.19*sin(a)-0.10*cos(2*a)+0.05*cos(4*a))
+  "star":
+   return 1.45+0.27*cos(5*a)
+  "square":
+   return 1.23/maxf(absf(cos(a)),absf(sin(a)))
+  "mini":
+   return 1.12
+  _:
+   return 1.60
+
+func inside_shape(p: Vector3, factor: float) -> bool:
+ return Vector2(p.x,p.z).length()<=radius_at(atan2(p.z,p.x))*factor
+
+func ring_point(a: float, fraction: float, height: float) -> Vector3:
+ var r = radius_at(a)*fraction
+ return Vector3(cos(a)*r,height,sin(a)*r)
+
+func triangle(st: SurfaceTool,a: Vector3,b: Vector3,c: Vector3) -> void:
+ for v in [a,b,c]:
+  st.set_uv(Vector2(v.x,v.z)*0.25+Vector2(0.5,0.5))
+  st.add_vertex(v)
+
+func shaped_disk(inner: float,outer: float,height: float,start_angle: float=0.0,sweep: float=TAU) -> ArrayMesh:
+ var st = SurfaceTool.new()
+ st.begin(Mesh.PRIMITIVE_TRIANGLES)
+ var segments = maxi(8,int(96.0*sweep/TAU))
+ for i in range(segments):
+  var a = start_angle+sweep*float(i)/segments
+  var b = start_angle+sweep*float(i+1)/segments
+  var ia = ring_point(a,inner,height/2.0)
+  var ib = ring_point(b,inner,height/2.0)
+  var oa = ring_point(a,outer,height/2.0)
+  var ob = ring_point(b,outer,height/2.0)
+  triangle(st,ia,oa,ob)
+  if inner>0.001: triangle(st,ia,ob,ib)
+  var da = oa-Vector3.UP*height
+  var db = ob-Vector3.UP*height
+  triangle(st,oa,da,db)
+  triangle(st,oa,db,ob)
+  if inner>0.001:
+   triangle(st,ib,ib-Vector3.UP*height,ia-Vector3.UP*height)
+   triangle(st,ib,ia-Vector3.UP*height,ia)
+  if sweep<TAU-0.01 and (i==0 or i==segments-1):
+   var edge = a if i==0 else b
+   var p = ring_point(edge,inner,height/2.0)
+   var q = ring_point(edge,outer,height/2.0)
+   triangle(st,p,q,q-Vector3.UP*height)
+   triangle(st,p,q-Vector3.UP*height,p-Vector3.UP*height)
+ st.generate_normals()
+ return st.commit()
+
+func make_topping(parent: Node3D,kind: String,pos: Vector3) -> void:
+ var pivot = Node3D.new()
+ parent.add_child(pivot)
+ pivot.position = pos
+ if kind=="olive" or kind=="onion":
+  var ring = TorusMesh.new()
+  ring.inner_radius = 0.065
+  ring.outer_radius = 0.135
+  ring.rings = 16
+  ring.ring_segments = 8
+  mesh_node(pivot,ring,COLORS[KINDS.find(kind)],Vector3.ZERO)
+ elif kind=="corn":
+  var kernel = SphereMesh.new()
+  kernel.radius = 0.055
+  kernel.height = 0.11
+  for i in range(3):
+   mesh_node(pivot,kernel,COLORS[7],Vector3(cos(i*2.09)*0.065,0,sin(i*2.09)*0.065))
+ else:
+  disc(pivot,0.12,0.065,Vector3.ZERO,COLORS[KINDS.find(kind)])
+
+func separate_slices() -> void:
+ if is_instance_valid(slice_group): slice_group.queue_free()
+ slice_group = Node3D.new()
+ pizza.add_child(slice_group)
+ dough.visible = false
+ crust.visible = false
+ sauce.visible = false
+ sauce_marks.visible = false
+ cuts.visible = false
+ var first = 0.0 if cut_angles.is_empty() else PI/2.0-cut_angles[0]
+ var groups: Array[Node3D] = []
+ for i in range(6):
+  var section = Node3D.new()
+  slice_group.add_child(section)
+  groups.append(section)
+  var a = first+float(i)*TAU/6.0
+  var mid = a+PI/6.0
+  mesh_node(section,shaped_disk(0,1,0.20,a+0.015,TAU/6.0-0.03),Color("#b77e42"),Vector3(0,0.13,0))
+  mesh_node(section,shaped_disk(0.82,1,0.13,a+0.015,TAU/6.0-0.03),Color("#bd8748"),Vector3(0,0.23,0))
+  mesh_node(section,shaped_disk(0,0.81,0.03,a+0.015,TAU/6.0-0.03),Color("#b83e29"),Vector3(0,0.27,0))
+  create_tween().tween_property(section,"position",Vector3(cos(mid)*0.13,0,sin(mid)*0.13),0.38)
+ var children = topping_root.get_children()
+ for i in range(mini(children.size(),topping_positions.size())):
+  var pos = topping_positions[i]
+  var idx = clampi(int(fposmod(atan2(pos.z,pos.x)-first,TAU)/(TAU/6.0)),0,5)
+  children[i].reparent(groups[idx],false)
+
+func guided_cut() -> void:
+ var angle = 0.0 if cut_angles.is_empty() else fposmod(cut_angles[0]+float(cut_angles.size())*PI/3,PI)
+ var vec = Vector3(sin(angle),0,cos(angle))*1.5
+ cut_line(-vec,vec)
+
+func setup_surface() -> void:
+ var path = "res://assets/imported/surfaces/wood_color.jpg"
+ if not ResourceLoader.exists(path): return
+ surface_material = StandardMaterial3D.new()
+ surface_material.albedo_texture = load(path)
+ surface_material.roughness = 0.68
+ surface_material.uv1_scale = Vector3(2.0,2.0,2.0)
+ var normal = "res://assets/imported/surfaces/wood_normal.jpg"
+ if ResourceLoader.exists(normal):
+  surface_material.normal_enabled = true
+  surface_material.normal_texture = load(normal)
+ var rough = "res://assets/imported/surfaces/wood_roughness.jpg"
+ if ResourceLoader.exists(rough): surface_material.roughness_texture = load(rough)
+
+func apply_external_button(b: Button) -> void:
+ var path = "res://assets/imported/interface/button.png"
+ if not ResourceLoader.exists(path): return
+ for state in ["normal","hover","pressed"]:
+  var tex = StyleBoxTexture.new()
+  tex.texture = load(path)
+  for side in [SIDE_LEFT,SIDE_TOP,SIDE_RIGHT,SIDE_BOTTOM]:
+   tex.set_texture_margin(side,8.0)
+   tex.set_content_margin(side,12.0)
+  tex.modulate_color = Color("#ffffff") if state=="normal" else Color("#f0d19a")
+  b.add_theme_stylebox_override(state,tex)
+
+func add_ingredient_button(kind: String) -> void:
+ var b = make_button(("● " if selected==kind else "")+ingredient_name(kind),func(): choose(kind))
+ b.add_theme_font_size_override("font_size",26)
+ if selected==kind: b.add_theme_color_override("font_color",Color("#fff0a5"))
+ actions.add_child(b)
+
+func make_book() -> void:
+ book_panel = PanelContainer.new()
+ book_panel.position = Vector2(38,88)
+ book_panel.size = Vector2(1204,520)
+ style_panel(book_panel,Color("#213e38"))
+ hud.add_child(book_panel)
+ var stack = VBoxContainer.new()
+ stack.add_theme_constant_override("separation",10)
+ book_panel.add_child(stack)
+ var header = HBoxContainer.new()
+ stack.add_child(header)
+ var caption_label = Label.new()
+ caption_label.name = "BookCaption"
+ caption_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ caption_label.add_theme_font_size_override("font_size",34)
+ header.add_child(caption_label)
+ header.add_child(make_button("‹",func(): change_book_page(-1)))
+ header.add_child(make_button("›",func(): change_book_page(1)))
+ header.add_child(make_button("×",func(): book_panel.visible = false))
+ book_grid = GridContainer.new()
+ book_grid.columns = 3
+ book_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+ book_grid.add_theme_constant_override("h_separation",12)
+ book_grid.add_theme_constant_override("v_separation",12)
+ stack.add_child(book_grid)
+ book_panel.visible = false
+
+func open_book() -> void:
+ book_page = int(level/6)
+ refresh_book()
+ book_panel.move_to_front()
+ book_panel.visible = true
+
+func refresh_book() -> void:
+ var label_node = book_panel.find_child("BookCaption",true,false) as Label
+ label_node.text = localise("Recipe book","دفتر الوصفات","Receitas")+"  "+str(book_page+1)+"/5"
+ for child in book_grid.get_children():
+  book_grid.remove_child(child)
+  child.queue_free()
+ for i in range(book_page*6,mini(book_page*6+6,BOOK.size())):
+  var names: Array[String] = []
+  for key in BOOK[i][4]: names.append(ingredient_name(key))
+  var shape_label = str({"round":"○","heart":"♥","star":"★","square":"□","mini":"◉"}[BOOK[i][3]])
+  var complete_mark = "  ✓" if completed.has(i) else ""
+  var b = make_button(shape_label+"  "+recipe_name(i)+complete_mark+"\n"+" · ".join(names),func(): select_recipe(i))
+  b.custom_minimum_size = Vector2(365,166)
+  b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+  b.add_theme_font_size_override("font_size",25)
+  book_grid.add_child(b)
+
+func select_recipe(index: int) -> void:
+ level = index
+ free_mode = false
+ book_panel.visible = false
+ save_game()
+ start_recipe()
+
+func change_book_page(delta: int) -> void:
+ book_page = clampi(book_page+delta,0,4)
+ refresh_book()

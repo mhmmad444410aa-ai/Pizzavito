@@ -6,3 +6,6 @@ This is an unvalidated vertical slice, not a full game or a store-ready build. M
 
 ## Visual and gameplay revision 1.0.1
 Rebalanced lighting, expanded original KayKit props, stage-specific camera, textured toppings, rolling pin, spatial sauce strokes, directional slice validation, packaging animation, free mode and original non-musical UI SFX. Still a vertical slice; device appearance, touch flow and production quality have not been validated. No claims of full 120-stage release.
+
+## 1.1.0 recipe and visual overhaul
+30 selectable recipes, five dough profiles, nine ingredient tools including sauce, persistent completion, spatial collision checks for toppings, separate animated pizza slices, guided cutting and optional real wood/UI assets. Source downloads and actual usage are verified in build logs; network-dependent optional assets fall back to original materials. Device rendering and the final APK size remain to be verified. Not all original ten modes are implemented.
