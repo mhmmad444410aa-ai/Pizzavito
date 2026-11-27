@@ -161,16 +161,31 @@ func button(parent: Control, value: String, area: Rect2, action: Callable, accen
  b.add_theme_color_override("font_color",Color("#fff8df") if accent else Color("#4b3a2f"))
  b.add_theme_color_override("font_hover_color",Color.WHITE if accent else Color("#4b3a2f"))
  b.add_theme_color_override("font_pressed_color",Color.WHITE if accent else Color("#4b3a2f"))
+ var glyph = icon_for(value)
+ if not glyph.is_empty():
+  b.icon = load("res://rebuild/icons/"+glyph+".svg")
+  b.add_theme_constant_override("icon_max_width",34)
+  b.add_theme_color_override("icon_normal_color",Color.WHITE if accent else Color("#735138"))
+  b.add_theme_color_override("icon_hover_color",Color.WHITE if accent else Color("#735138"))
  b.pressed.connect(func():
   click()
   action.call())
  parent.add_child(b)
  return b
 
+func icon_for(value: String) -> String:
+ if value==tr3("PLAY  ›","العب  ‹","JOGAR  ›"): return "play"
+ if value==tr3("Recipe book","دفتر الوصفات","Receitas"): return "book-open"
+ if value==tr3("Settings","الإعدادات","Ajustes"): return "settings"
+ if value==tr3("Free kitchen","المطبخ الحر","Cozinha livre"): return "chef-hat"
+ return ""
+
 func image_node(parent: Control,key: String,area: Rect2) -> TextureRect:
  var v = TextureRect.new()
  v.position = area.position
  v.size = area.size
+ if not tex.has(key) and key.begins_with("recipe_"):
+  tex[key] = load(ART+key+".svg")
  v.texture = tex.get(key)
  v.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
  v.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -232,7 +247,7 @@ func book_ui() -> void:
   var area = Rect2(45+col*399,115+row*238,380,219)
   var card = button(ui,"",area,func(): start_recipe(index,false),false)
   var rec = book[i]
-  image_node(card,"hero",Rect2(13,17,150,150))
+  image_node(card,"recipe_"+str(i),Rect2(13,17,150,150))
   label(card,str(rec["names"][lang]),Rect2(169,13,195,72),25,Color("#355b4a"),true)
   var stars = int(scores.get(str(i),0))
   label(card,"★".repeat(stars)+"☆".repeat(3-stars),Rect2(169,83,195,42),25,Color("#d08b35"))
@@ -326,7 +341,7 @@ func cook_ui() -> void:
  panel(ui,Rect2(24,124,238,478),Color("#fff1d9"),Color("#c68e5c"))
  label(ui,tr3("YOUR ORDER","طلبك","SEU PEDIDO"),Rect2(35,136,216,40),23,Color("#a65338"))
  label(ui,tr3("Free kitchen","المطبخ الحر","Cozinha livre") if free else str(book[recipe]["names"][lang]),Rect2(34,177,218,66),28)
- image_node(ui,"hero",Rect2(62,246,160,160))
+ image_node(ui,"recipe_"+str(recipe),Rect2(62,246,160,160))
  label(ui,shape_label(shape_kind)+"\n"+food_name(sauce_kind),Rect2(36,412,214,75),24)
  var order_items: Array = book[recipe]["ingredients"] if not free else []
  for i in range(mini(order_items.size(),4)):
@@ -481,7 +496,7 @@ func advance() -> void:
 func result_ui() -> void:
  panel(ui,Rect2(255,72,770,576),Color("#fff0d7"),Color("#c99360"))
  label(ui,tr3("Pizza served!","تم تقديم البيتزا!","Pizza servida!"),Rect2(280,88,720,75),48,Color("#3c7256"))
- image_node(ui,"hero",Rect2(495,177,290,290))
+ image_node(ui,"recipe_"+str(recipe),Rect2(495,177,290,290))
  label(ui,"★".repeat(finish_score)+"☆".repeat(3-finish_score),Rect2(300,465,680,60),48,Color("#d79432"))
  button(ui,tr3("Recipe book","دفتر الوصفات","Receitas"),Rect2(295,552,330,67),func(): go("book"),false,26)
  button(ui,tr3("Next pizza","البيتزا التالية","Próxima pizza"),Rect2(652,552,330,67),func(): start_recipe((recipe+1)%book.size(),false),true,26)
@@ -503,7 +518,8 @@ func outline(scale_factor: float, shift: Vector2=Vector2.ZERO, start: float=0.0,
  var pts = PackedVector2Array()
  if sweep<TAU-0.01: pts.append(C+shift)
  var count = maxi(10,roundi(100.0*sweep/TAU))
- for i in range(count+1):
+ var point_count = count+1 if sweep<TAU-0.01 else count
+ for i in range(point_count):
   var a = start+sweep*float(i)/float(count)
   pts.append(C+shift+Vector2(cos(a),sin(a))*radius_for(a)*scale_factor)
  return pts
@@ -678,6 +694,7 @@ func apply_cut(a: Vector2,b: Vector2) -> void:
 
 func _process(delta: float) -> void:
  tick+=delta
+ if screen=="gallery" and is_instance_valid(preview_pivot): preview_pivot.rotate_y(delta*.45)
  if screen=="cook":
   if baking:
    heat=minf(1.0,heat+delta*.11)
@@ -752,10 +769,24 @@ func gallery_ui() -> void:
 
 func show_model(key: String) -> void:
  if not is_instance_valid(preview_pivot): return
+ preview_pivot.rotation = Vector3.ZERO
+ preview_pivot.scale = Vector3.ONE
  for child in preview_pivot.get_children():
   preview_pivot.remove_child(child)
   child.queue_free()
  if not manifest.has(key):
+  var fallback = MeshInstance3D.new()
+  var mesh = QuadMesh.new()
+  mesh.size = Vector2(1.65,1.65)
+  fallback.mesh = mesh
+  var material = StandardMaterial3D.new()
+  material.albedo_texture = tex[key]
+  material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+  material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+  material.cull_mode = BaseMaterial3D.CULL_DISABLED
+  material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+  fallback.material_override = material
+  preview_pivot.add_child(fallback)
   return
  var entry: Dictionary=manifest[key]
  var resource=load(str(entry["path"]))
@@ -781,6 +812,7 @@ func show_model(key: String) -> void:
 
 func smoke() -> void:
  assert(book.size()==50)
+ for i in range(book.size()): assert(ResourceLoader.exists(ART+"recipe_"+str(i)+".svg"))
  for item in book:
   assert(item["ingredients"].size()>=3)
   for key in item["ingredients"]: assert(tex.has(key))
