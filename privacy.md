@@ -1,2 +1,6 @@
-# Pizzavito — prototype privacy notice
-This prototype is designed to work offline. It stores selected language and game progress locally on the device. It does not include advertising, analytics, accounts, location, contacts, chat, or external links in the game. Uninstalling the app or clearing app data removes local progress. This notice is provisional and must be verified against the final signed APK and updated with developer contact information and a public HTTPS URL before any store submission.
+# Pizzavito Privacy Policy (v2.4.0)
+Pizzavito is a child-directed pizza cooking game. Gameplay and saved progress work offline and are stored locally. The app has no account or user profile and does not ask for a child's name, contact information, or precise location.
+
+When connected to the internet the Android app integrates Huawei Petal Ads (banner and occasional interstitial ads). All ad requests are configured as child-directed, under age of consent, non-personalized and restricted to the W (all audiences) content rating. Huawei handles contextual advertising under its own privacy terms; the publisher does not request personalized advertising or intentionally collect children's personal data. Network processing may be necessary to deliver contextual ads. See https://privacy.huawei.com/ and https://developer.huawei.com/consumer/en/doc/monetize/policy4-0000001146675575 for details. Game access does not depend on ad availability. If required by local law, the publisher must obtain any necessary parental permission before making ads available in that territory.
+
+To erase local game data, clear the app's storage or uninstall it. Contact the developer via the contact address listed on the app store listing.

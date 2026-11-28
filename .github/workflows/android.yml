@@ -8,7 +8,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     env:
       GODOT_VERSION: 4.5.1
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -58,7 +58,7 @@ jobs:
           set +o pipefail
           yes | "$manager" --sdk_root="$sdk" --licenses >/dev/null
           set -o pipefail
-          "$manager" --sdk_root="$sdk" "platform-tools" "build-tools;35.0.0" "platforms;android-35"
+          "$manager" --sdk_root="$sdk" "platform-tools" "build-tools;35.0.0" "platforms;android-35" "ndk;28.1.13356709"
           test -x "$sdk/build-tools/35.0.0/apksigner"
           test -x "$sdk/build-tools/35.0.0/zipalign"
           mkdir -p "$HOME/.config/godot" build
@@ -74,6 +74,8 @@ jobs:
           python3 -u tools/fetch_visuals.py 2>&1 | tee build/visuals.log
           python3 tools/generate_art.py
           godot --headless --path . --script tools/export_icon.gd
+      - name: Prepare native Godot Android template and Petal Ads
+        run: python3 tools/prepare_ads_android.py
       - name: Import project and run smoke test
         shell: bash
         run: |
@@ -115,6 +117,11 @@ jobs:
           "$tools/apksigner" verify --verbose --print-certs build/Pizzavito-RELEASE.apk > build/release-certificate.txt
           "$tools/zipalign" -c -P 16 4 build/Pizzavito-RELEASE.apk
           python3 tools/verify_apk.py build/Pizzavito-RELEASE.apk
+          "$sdk/build-tools/35.0.0/aapt" dump badging build/Pizzavito-RELEASE.apk > build/release-badging.txt
+          "$sdk/build-tools/35.0.0/aapt" dump xmltree build/Pizzavito-RELEASE.apk AndroidManifest.xml > build/release-manifest.txt
+          grep -q PizzavitoAds build/release-manifest.txt
+          grep -q android.permission.INTERNET build/release-manifest.txt
+          sha256sum build/Pizzavito-RELEASE.apk > build/release-sha256.txt
           rm build/release-unsigned.apk build/release-aligned.apk
       - uses: actions/upload-artifact@v4
         if: always()
@@ -124,6 +131,7 @@ jobs:
             build/Pizzavito-*.apk
             build/*.log
             build/*-certificate.txt
+            build/release-*.txt
             assets/imported/manifest.json
             assets/imported/visuals-report.json
           if-no-files-found: warn

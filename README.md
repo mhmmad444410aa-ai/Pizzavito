@@ -21,3 +21,6 @@ Home presentation preserved. Sequential locked recipes, contiguous legacy progre
 
 ## 2.2.0 market, challenge and art update
 Original illustrated launcher, 10 selectable free-play dough shapes, shopping challenge from level 4, position-guided topping challenge from level 6, scaled rolling/sauce/cutting/oven difficulty, placement effects and distinct stage surfaces from CC0 ambientCG. UI skin uses CC0 Kenney where download succeeds. Sequential campaign preserved. No coercive engagement features. CI smoke tests cover market and topping target as well as original stages. Pending real-device QA and production signing.
+
+## 2.4.0 native Petal Ads integration
+Godot Gradle template integrates official Petal Ads SDK 3.4.91.300. Test builds use Huawei test IDs; release uses the configured publisher IDs. Child-directed, under-age, non-personalized, W-rated requests. Native banner reserves its own bottom area; interstitial attempts only on completed campaign recipes, after three completions and at least 120 seconds. No ads required for gameplay; load errors skip ads. Device QA, publisher-side child audience and W rating configuration, regional privacy compliance, public privacy policy update, and actual ad fill remain required before publication. No claim of live impressions until verified.

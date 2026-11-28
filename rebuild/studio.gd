@@ -257,6 +257,8 @@ func rebuild_ui() -> void:
   "cook": cook_ui()
   "market": market_ui()
   "result": result_ui()
+ if Engine.has_singleton("PizzavitoAds"):
+  Engine.get_singleton("PizzavitoAds").setScreen(screen)
  queue_redraw()
 
 func go(value: String) -> void:
@@ -347,7 +349,7 @@ func settings_ui() -> void:
  for i in range(3):
   var index = i
   button(ui,["English","العربية","Português"][i]+("  ✓" if lang==i else ""),Rect2(350,245+i*88,580,73),func(): set_lang(index),lang==i,31)
- label(ui,tr3("Offline • No ads • No music","دون إنترنت • دون إعلانات • دون موسيقى","Offline • Sem anúncios • Sem música"),Rect2(275,530,730,45),24)
+ label(ui,tr3("Offline play • No music","اللعب دون إنترنت • دون موسيقى","Jogue offline • Sem música"),Rect2(275,530,730,45),24)
 
 func set_lang(index: int) -> void:
  lang = index
@@ -620,6 +622,8 @@ func advance() -> void:
    if recipe==unlocked: unlocked = mini(book.size()-1,unlocked+1)
   if not "--smoke-test" in OS.get_cmdline_user_args(): persist()
   go("result")
+  if Engine.has_singleton("PizzavitoAds") and not free:
+   Engine.get_singleton("PizzavitoAds").recipeCompleted()
   return
  phase+=1
  if phase==5:
