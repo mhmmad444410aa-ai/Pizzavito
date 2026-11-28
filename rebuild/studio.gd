@@ -52,6 +52,12 @@ var roller_at = C
 var dragging_tool = false
 var heat = 0.0
 var baking = false
+var oven_state = 0
+var oven_motion = 0.0
+var oven_button: Button
+var pack_stage = 0
+var pack_button: Button
+var bake_retry = false
 var baked = false
 var finish_score = 0
 var bake_quality = 0
@@ -365,6 +371,10 @@ func start_recipe(index: int, freestyle: bool) -> void:
  heat = 0.0
  baking = false
  baked = false
+ oven_state = 0
+ oven_motion = 0.0
+ pack_stage = 0
+ bake_retry = false
  bake_quality = 0
  finish_score = 0
  pack_anim = 0.0
@@ -426,12 +436,13 @@ func cook_ui() -> void:
   2: build_tray()
   3:
    image_node(ui,"oven",Rect2(1013,269,213,177))
-   button(ui,tr3("Start oven","شغّل الفرن","Ligar forno"),Rect2(996,447,244,62),start_bake,true,25)
+   oven_button = button(ui,"",Rect2(996,447,244,62),oven_action,true,24)
   4:
    image_node(ui,"cutter",Rect2(1015,271,208,155))
    button(ui,tr3("Help cut","مساعدة القطع","Ajudar corte"),Rect2(996,447,244,62),assist_cut,false,23)
   5:
-   image_node(ui,"box",Rect2(1010,268,216,180))
+   image_node(ui,"box",Rect2(1010,250,216,160))
+   pack_button = button(ui,"",Rect2(996,447,244,62),advance,true,24)
  panel(ui,Rect2(20,620,1240,82),Color("#fff1d9"),Color("#c48b59"))
  button(ui,tr3("Restart","إعادة","Reiniciar"),Rect2(33,632,175,58),func(): start_recipe(recipe,free),false,24)
  if phase==2:
@@ -524,14 +535,23 @@ func update_status() -> void:
     var btn: Button = selected_buttons[key]
     btn.modulate = Color("#a7e5bf") if key==selected else Color.WHITE
   3:
-   status.text = tr3("Stop in the green zone","أوقف الفرن في المنطقة الخضراء","Pare na zona verde")
+   var messages = [tr3("Slide pizza into oven","أدخل البيتزا إلى الفرن","Coloque a pizza no forno"),tr3("Loading pizza…","جارٍ إدخال البيتزا","Colocando pizza…"),tr3("Close door & start","أغلق الباب وابدأ الخبز","Feche e ligue"),tr3("Stop in the green zone","أوقف الفرن في المنطقة الخضراء","Pare na zona verde"),tr3("Taking pizza out…","جارٍ إخراج البيتزا","Retirando pizza…"),tr3("Golden and ready!","ذهبية وجاهزة!","Dourada e pronta!")]
+   status.text = messages[oven_state]
+   if bake_retry and oven_state==2: status.text=tr3("Try the green zone again","حاول إصابة المنطقة الخضراء","Tente a zona verde novamente")
    progress_label.text = str(roundi(heat*100))+"%"
+   if is_instance_valid(oven_button):
+    oven_button.text = [tr3("Load pizza","أدخل البيتزا","Colocar pizza"),"…",tr3("Start oven","شغّل الفرن","Ligar forno"),tr3("STOP OVEN","أوقف الفرن","PARAR FORNO"),"…",tr3("Done","تم","Pronto")][oven_state]
+    oven_button.disabled = oven_state==1 or oven_state==4 or oven_state==5
   4:
    status.text = tr3("Swipe across the centre","اسحب عبر المنتصف","Deslize pelo centro")
    progress_label.text = str(cuts.size())+" / "+str(required_slices())
   5:
-   status.text = tr3("Ready to serve!","جاهزة للتقديم!","Pronta para servir!")
-   progress_label.text = ""
+   var tasks = [tr3("Slide pizza into box","ضع البيتزا داخل العلبة","Coloque na caixa"),tr3("Fold the lid","أغلق الغطاء","Feche a tampa"),tr3("Seal the box","ضع ملصق الإغلاق","Sele a caixa"),tr3("Ready to serve!","جاهزة للتقديم!","Pronta para servir!")]
+   status.text = tasks[pack_stage]
+   progress_label.text = str(pack_stage)+" / 3"
+   if is_instance_valid(pack_button):
+    pack_button.text = [tr3("Pack pizza","ضع في العلبة","Embalar"),tr3("Close lid","أغلق العلبة","Fechar"),tr3("Add seal","ضع الملصق","Selar"),tr3("Serve","قدّم","Servir")][pack_stage]
+    pack_button.disabled = packing
  if is_instance_valid(advance_button):
   advance_button.disabled = not ready_for_next()
   if phase==3 and baking:
@@ -540,19 +560,44 @@ func update_status() -> void:
   elif phase==3:
    advance_button.text = tr3("Next  ›","التالي  ‹","Próximo  ›")
   elif phase==5:
-   advance_button.text = tr3("Serve pizza","قدّم البيتزا","Servir pizza")
+   advance_button.text = tr3("Serve pizza","قدّم البيتزا","Servir pizza") if pack_stage==3 else tr3("Complete step","أكمل الخطوة","Concluir etapa")
+   advance_button.disabled = packing
  queue_redraw()
 
+func oven_action() -> void:
+ match oven_state:
+  0:
+   oven_state=1
+   oven_motion=0.0
+  2: start_bake()
+  3: stop_bake()
+ update_status()
+
+func oven_bounds() -> Vector2:
+ var width = .24 if free else maxf(.075,.24-float(recipe)*.0035)
+ return Vector2(.75-width*.5,.75+width*.5)
+
 func start_bake() -> void:
- if baking or baked: return
- heat = 0.0
- baking = true
+ if oven_state!=2: return
+ heat=0.0
+ oven_state=3
+ baking=true
+ baked=false
  update_status()
 
 func stop_bake() -> void:
- baking = false
- bake_quality = 3 if heat>=0.65 and heat<=0.85 else (2 if heat>=0.45 and heat<=0.96 else 1)
- baked = true
+ if not baking: return
+ baking=false
+ var zone=oven_bounds()
+ bake_quality=3 if heat>=zone.x and heat<=zone.y else (2 if heat>=zone.x-.13 and heat<=zone.y+.12 else 1)
+ if not free and recipe>=4 and bake_quality==1:
+  bake_retry=true
+  oven_state=2
+  heat=0.0
+  baked=false
+ else:
+  oven_state=4
+  oven_motion=0.0
  click()
  update_status()
 
@@ -562,12 +607,12 @@ func advance() -> void:
   return
  if not ready_for_next(): return
  if phase==5:
-  if not packing:
-   packing = true
-   pack_time = 0.0
-   if is_instance_valid(advance_button): advance_button.disabled = true
+  if packing: return
+  if pack_stage<3:
+   packing=true
+   pack_time=0.0
+   update_status()
    return
-  if pack_time<0.85: return
   finish_score = maxi(1,mini(3,bake_quality))
   if not free and recipe>=5 and action_total>0 and float(action_accuracy)/float(action_total)<.55: finish_score=mini(finish_score,2)
   if not free:
@@ -577,7 +622,10 @@ func advance() -> void:
   go("result")
   return
  phase+=1
- if phase==5: pack_anim=0.0
+ if phase==5:
+  pack_anim=0.0
+  pack_stage=0
+  packing=false
  dragging = false
  dragging_tool = false
  cut_path.clear()
@@ -646,27 +694,9 @@ func _draw() -> void:
   draw_circle(C,243,Color("#dfb37d"))
   draw_arc(C,240,0,TAU,96,Color("#bc8b5a"),3,true)
  if phase==3:
-  draw_image("oven",Rect2(255,112,630,494))
-  draw_pizza(0.69,Vector2(0,34))
-  var bar = Rect2(424,558,392,22)
-  draw_style_box(panel_style(Color("#573b30"),Color("#704e37"),10),bar)
-  draw_rect(Rect2(424+392*.65,562,392*.20,14),Color("#9ac77b"))
-  draw_circle(Vector2(424+392*heat,569),13,Color("#ffedbe"))
-  if baking:
-   for i in range(6):
-    var t = fposmod(tick*0.6+i*.17,1.0)
-    draw_circle(Vector2(480+i*55+sin(tick*2+i)*12,280-t*90),9+t*13,Color(1,0.87,0.63,(1-t)*.30))
+  draw_oven_scene()
  elif phase==5:
-  draw_image("box",Rect2(265,120,610,478))
-  draw_pizza(0.82,Vector2(0,12))
-  if packing:
-   var lid_h = 370.0*smoothstep(0.0,0.85,pack_time)
-   draw_style_box(panel_style(Color("#d0a46f"),Color("#9a673f"),14),Rect2(315,192,510,lid_h+1))
-  if pack_anim>0:
-   for i in range(14):
-    var a = float(i)*2.399
-    var rr = 210+sin(tick*2+i)*16
-    draw_circle(C+Vector2(cos(a),sin(a))*rr,4.0+float(i%3),Color("#f5cb65"))
+  draw_pack_scene()
  else:
   draw_pizza(1.0)
   if phase==0: draw_image("roller",Rect2(roller_at-Vector2(150,45),Vector2(300,90)))
@@ -676,6 +706,64 @@ func _draw() -> void:
  if phase==2 and dragging_tool and not inside(last):
   draw_image(selected,Rect2(last-Vector2(32,32),Vector2(64,64)))
 
+func draw_oven_scene() -> void:
+ # Independent oven housing, cavity, rack, glass door and animated pizza peel.
+ draw_style_box(panel_style(Color("#494140"),Color("#2c2421"),24),Rect2(275,140,590,408))
+ draw_style_box(panel_style(Color("#b9a99a"),Color("#6c5646"),20),Rect2(290,150,560,386))
+ draw_style_box(panel_style(Color("#352827"),Color("#806049"),14),Rect2(315,207,510,272))
+ for j in range(8):
+  draw_line(Vector2(333,438+j*4),Vector2(808,438+j*4),Color("#8d7c6d"),2,true)
+ for j in range(3):
+  draw_style_box(panel_style(Color("#f0ba62") if baking else Color("#49362f"),Color("#6a5042"),5),Rect2(360+j*145,218,120,10))
+ if baking:
+  draw_rect(Rect2(328,230,484,204),Color(1,.43,.12,.15+.07*sin(tick*5)))
+ var load_amount=0.0
+ if oven_state==1: load_amount=smoothstep(0.0,1.0,oven_motion)
+ elif oven_state==2 or oven_state==3: load_amount=1.0
+ elif oven_state==4: load_amount=1.0-smoothstep(0.0,1.0,oven_motion)
+ var pizza_shift=Vector2(0,116-146*load_amount)
+ var pizza_scale=lerpf(.65,.46,load_amount)
+ if oven_state!=3:
+  draw_style_box(panel_style(Color("#b98b58"),Color("#725035"),12),Rect2(C.x-150,C.y+120-146*load_amount,300,28))
+  draw_style_box(panel_style(Color("#ae7544"),Color("#70452b"),12),Rect2(C.x+135,C.y+123-146*load_amount,182,22))
+ draw_pizza(pizza_scale,pizza_shift)
+ if oven_state==3:
+  draw_style_box(panel_style(Color(0.19,0.10,0.08,.28),Color("#65463c"),13),Rect2(315,207,510,272))
+  draw_line(Vector2(382,240),Vector2(454,240),Color(1,1,1,.18),5,true)
+  for j in range(7):
+   var t=fposmod(tick*.55+j*.14,1.0)
+   draw_circle(Vector2(400+j*54+sin(tick*3+j)*8,300-t*65),6+t*12,Color(1,.85,.56,(1-t)*.22))
+ else:
+  draw_style_box(panel_style(Color("#73665b"),Color("#3d302b"),12),Rect2(315,478,510,40))
+ draw_style_box(panel_style(Color("#222b27"),Color("#6f6556"),8),Rect2(468,160,204,34))
+ draw_string(ThemeDB.fallback_font,Vector2(514,184),str(roundi(heat*100))+"%",HORIZONTAL_ALIGNMENT_LEFT,-1,24,Color("#d9f4aa"))
+ var zone=oven_bounds()
+ draw_style_box(panel_style(Color("#4a372c"),Color("#9b7651"),10),Rect2(310,558,520,24))
+ draw_rect(Rect2(310+520*zone.x,562,520*(zone.y-zone.x),16),Color("#80c96b"))
+ draw_circle(Vector2(310+520*heat,570),12,Color("#fff3c9"))
+
+func draw_pack_scene() -> void:
+ var centre=Vector2(570,366)
+ draw_style_box(panel_style(Color("#b5844e"),Color("#7d5433"),17),Rect2(315,296,510,275))
+ draw_style_box(panel_style(Color("#f3dfb5"),Color("#b28755"),12),Rect2(331,306,478,244))
+ var motion=smoothstep(0.0,1.0,pack_time/.65) if packing else 0.0
+ var loaded=1.0 if pack_stage>=1 else motion
+ var closure=1.0 if pack_stage>=2 else (motion if pack_stage==1 else 0.0)
+ var lid_h=lerpf(150.0,264.0,closure)
+ var lid_y=lerpf(143.0,295.0,closure)
+ if closure<.99:
+  draw_style_box(panel_style(Color("#e5c38e"),Color("#9e703f"),15),Rect2(315,lid_y,510,lid_h))
+ draw_pizza(.68,Vector2(0,lerpf(-112.0,62.0,loaded)))
+ if closure>.01:
+  draw_style_box(panel_style(Color("#e6c697"),Color("#97693c"),15),Rect2(315,lid_y,510,lid_h))
+  draw_style_box(panel_style(Color("#fff0d2"),Color("#ba915b"),12),Rect2(400,lid_y+lid_h*.27,340,86))
+  draw_string(ThemeDB.fallback_font,Vector2(440,lid_y+lid_h*.27+53),"PIZZAVITO",HORIZONTAL_ALIGNMENT_LEFT,-1,39,Color("#34634d"))
+  draw_line(Vector2(335,lid_y+lid_h-17),Vector2(805,lid_y+lid_h-17),Color("#bf945e"),4,true)
+ if pack_stage>=3 or (pack_stage==2 and packing):
+  var seal_scale=1.0 if pack_stage>=3 else motion
+  draw_circle(Vector2(570,548),32*seal_scale,Color("#367851"))
+  draw_arc(Vector2(570,548),26*seal_scale,0,TAU,40,Color("#f9e3a3"),3,true)
+  draw_string(ThemeDB.fallback_font,Vector2(559,556),"✓",HORIZONTAL_ALIGNMENT_LEFT,-1,25,Color.WHITE)
 func draw_pizza(scale_factor: float,shift: Vector2=Vector2.ZERO) -> void:
  var actual = scale_factor*(0.57+0.43*dough_progress if phase==0 else 1.0)
  var shadow_shift = shift+Vector2(0,14)
@@ -847,15 +935,27 @@ func _process(delta: float) -> void:
  tick+=delta
  if screen=="gallery" and is_instance_valid(preview_pivot): preview_pivot.rotate_y(delta*.45)
  if screen=="cook":
+  if phase==3 and (oven_state==1 or oven_state==4):
+   oven_motion=minf(1.0,oven_motion+delta*1.4)
+   if oven_motion>=1.0:
+    if oven_state==1: oven_state=2
+    else:
+     oven_state=5
+     baked=true
+    update_status()
   if baking:
-   heat=minf(1.0,heat+delta*(.10 if free else .10+minf(float(recipe)*.0015,.07)))
+   heat=minf(1.0,heat+delta*(.10 if free else .10+minf(float(recipe)*.002,.10)))
    if heat>=1.0: stop_bake()
    update_status()
   if phase==5:
    pack_anim=minf(1.0,pack_anim+delta)
    if packing:
     pack_time+=delta
-    if pack_time>=0.85: advance()
+    if pack_time>=0.65:
+     packing=false
+     pack_stage=mini(3,pack_stage+1)
+     pack_time=0.0
+     update_status()
   if phase==2 or phase==3 or phase==5: queue_redraw()
 
 func setup_audio() -> void:
@@ -990,15 +1090,27 @@ func smoke() -> void:
    toppings.append({"key":key,"p":C+Vector2(i*10,0)})
  advance()
  assert(phase==3)
- heat=.76
- stop_bake()
+ oven_action()
+ assert(oven_state==1)
+ _process(1.0)
+ assert(oven_state==2)
+ oven_button.pressed.emit()
+ assert(baking)
+ heat=.75
+ oven_button.pressed.emit()
+ assert(not baking and oven_state==4)
+ _process(1.0)
+ assert(baked and oven_state==5)
  advance()
  assert(phase==4)
  for i in range(required_slices()): cuts.append(float(i)*PI/required_slices())
  advance()
  assert(phase==5)
- advance()
- pack_time = 1.0
+ for step in range(3):
+  advance()
+  assert(packing)
+  _process(1.0)
+  assert(pack_stage==step+1)
  advance()
  assert(screen=="result")
  assert(unlocked>=1)
